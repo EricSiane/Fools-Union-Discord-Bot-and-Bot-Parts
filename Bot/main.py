@@ -146,46 +146,6 @@ async def on_message(message):
         except Exception as e:
             await message.channel.send(f"An error occurred: {str(e)}")
 
-
-
-async def fetch_level(username="callum upton", desired_skill="Mining", message=None):
-    url = f"https://secure.runescape.com/m=hiscore_oldschool/hiscorepersonal?user1={username}"
-
-    # Send a GET request to the URL
-    response = requests.get(url)
-
-    # Check if the request was successful
-    if response.status_code != 200:
-        print(f"Failed to load page. Status code: {response.status_code}")
-        return
-
-    # Parse the HTML content
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    # Find all rows in the hiscore table
-    rows = soup.find_all('tr')
-
-    if not rows:
-        print("No rows found in the hiscore table.")
-        return
-
-    # Iterate through rows to find desired level
-    for row in rows:
-        columns = row.find_all('td')
-        if len(columns) >= 4:
-            skill_name = columns[1].get_text(strip=True)
-            if skill_name == f'{desired_skill}':
-                global clan_skill_total
-                level = columns[3].get_text(strip=True)
-                print(f"Level: {level}")
-                clan_skill_total += int(level)
-                await message.channel.send(f"{username}'s {skill_name} LVL is : {level}")
-    return
-    #print(f"Players {desired_skill} Level not found.")
-
-
-# Replace 'Callum%20upton' with the actual username, ensuring to encode spaces as needed
-
 #Start MakeAVC
 TARGET_VOICE_CHANNEL_ID = int(vc_id)
 # Dictionary to store created channels for each user
