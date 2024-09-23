@@ -73,4 +73,4 @@ async def on_message(message):
             print("Last 3 bosses:", list(last_3_bosses))
             print("Last 3 skills:", list(last_3_skills))
 
-bot.run('MTI3MTg5NzA4ODMzMDA0MzUwMw.GPxkQX.zyWnMoiBOKm-JTQHTQwS00xuYApRc2FMbbEsV8')  # Replace with your actual bot token
+bot.run(TOKEN)  # Replace with your actual bot token
