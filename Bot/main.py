@@ -21,21 +21,7 @@ boss_of_the_week = ["Abyssal Sire", "Alchemical Hydra", "Araxxor", "Barrows", "B
  "Deranged Archaeologist", "Duke Sucellus", "General Graardor", "Giant Mole", "Grotesque Guardians",
  "Kalphite Queen", "King Black Dragon", "Kraken", "Kree'Arra", "K'ril Tsutsaroth", "Nex", "Nightmare", "Obor", "Phantom Muspah", "Sarachnis", "Scorpia", "Scurrius", "Skotizo", "Tempoross", "The Gauntlet", "The Leviathan", "The Whisperer", "Thermonuclear Smoke Devil", "TzTok-Jad", "Vardorvis", "Venenatis", "Vorkath", "Wintertodt", "Zalcano", "Zulrah"]
 
-# Load data if it exists for BOTW & SOTW
-data_file_path = 'selection_data.json'
 
-if os.path.exists(data_file_path):
-    with open(data_file_path, 'r') as f:
-        data = json.load(f)
-        last_3_bosses = deque(data['last_3_bosses'], maxlen=3)
-        last_3_skills = deque(data['last_3_skills'], maxlen=3)
-    # Debug notifications
-    print("DEBUG: Loaded previous selections:")
-    print("Last 3 bosses:", list(last_3_bosses))
-    print("Last 3 skills:", list(last_3_skills))
-else:
-    last_3_bosses = deque(maxlen=3)
-    last_3_skills = deque(maxlen=3)
 #Bot Init Start
 intents = discord.Intents.default()
 intents.members = True
@@ -87,6 +73,21 @@ async def on_message(message):
 #Start OTW Selection
     if content_lower.startswith("!otwselect") and not message.author.bot:
         # Choose boss, ensuring it's not in the last 3
+        # Load data if it exists for BOTW & SOTW
+        data_file_path = 'selection_data.json'
+
+        if os.path.exists(data_file_path):
+            with open(data_file_path, 'r') as f:
+                data = json.load(f)
+                last_3_bosses = deque(data['last_3_bosses'], maxlen=3)
+                last_3_skills = deque(data['last_3_skills'], maxlen=3)
+            # Debug notifications
+            print("DEBUG: Loaded previous selections:")
+            print("Last 3 bosses:", list(last_3_bosses))
+            print("Last 3 skills:", list(last_3_skills))
+        else:
+            last_3_bosses = deque(maxlen=3)
+            last_3_skills = deque(maxlen=3)
         while True:
             boss_choice = random.choice(boss_of_the_week)
             if boss_choice not in last_3_bosses:
@@ -148,8 +149,45 @@ async def on_message(message):
 
 #Start MakeAVC
 TARGET_VOICE_CHANNEL_ID = int(vc_id)
+
 # Dictionary to store created channels for each user
 created_channels = {}
+
+# Path to store JSON data
+json_file_path = "created_channels.json"
+
+
+# Function to load created channels from JSON
+def load_channels_from_json():
+    global created_channels
+    if os.path.exists(json_file_path):
+        with open(json_file_path, "r") as f:
+            created_channels = json.load(f)
+
+
+# Function to save created channels to JSON
+def save_channels_to_json():
+    with open(json_file_path, "w") as f:
+        json.dump(created_channels, f)
+
+
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user}!')
+
+    # Load the created channels from the JSON file when the bot starts
+    load_channels_from_json()
+
+    # Check if the channels still exist and delete the ones that don't
+    guild = discord.utils.get(bot.guilds, id=int(vc_id))
+    if guild:
+        for user_id, channel_id in list(created_channels.items()):
+            channel = guild.get_channel(channel_id)
+            if not channel:  # If the channel doesn't exist, remove it from the dictionary
+                del created_channels[user_id]
+        save_channels_to_json()
+
+
 @bot.event
 async def on_voice_state_update(member, before, after):
     if after.channel and after.channel.id == TARGET_VOICE_CHANNEL_ID:
@@ -174,7 +212,6 @@ async def on_voice_state_update(member, before, after):
                 mute_members=True,
                 deafen_members=True,
                 move_members=True,
-                # ... add other permissions as needed
             )
         }
 
@@ -184,18 +221,21 @@ async def on_voice_state_update(member, before, after):
             overwrites=overwrites
         )
         await member.move_to(new_channel)
-        created_channels[member.id] = new_channel
+        created_channels[member.id] = new_channel.id  # Save the channel ID instead of the object
+        save_channels_to_json()
         print(f"Created channel for {member.name}: {new_channel.name}")
 
-    elif before.channel: # User left a voice channel
-        if len(before.channel.members) == 0 and before.channel.id in [channel.id for channel in created_channels.values()]:
+    elif before.channel:  # User left a voice channel
+        if len(before.channel.members) == 0 and before.channel.id in created_channels.values():
             print(f"Deleting channel: {before.channel.name}")
             # Find the ID of the user who created this channel
-            creator_id = next((user_id for user_id, channel in created_channels.items() if channel.id == before.channel.id),
-                              None)
+            creator_id = next(
+                (user_id for user_id, channel_id in created_channels.items() if channel_id == before.channel.id), None)
             await before.channel.delete()
             if creator_id:  # Only delete from the dictionary if we found the creator
                 del created_channels[creator_id]
+                save_channels_to_json()
+
 #End MakeAVC
 
 bot.run(bot_token)
