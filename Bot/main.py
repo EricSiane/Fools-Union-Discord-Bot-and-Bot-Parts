@@ -1,3 +1,4 @@
+import asyncio
 import json
 import pandas as pd
 import argparse
@@ -99,64 +100,63 @@ async def on_message(message):
     guild = message.guild
     content_lower = message.content.lower()
 
+    # Checking for the '!rsn' command
     if content_lower.startswith('!rsn ') and not message.author.bot:
         rsn = content_lower[len('!rsn '):]
 
         csv_file = "fools_union_member_data.csv"
-
         df = pd.read_csv(csv_file)
 
-        # Convert the 'Discord' column to string type
         df['Discord'] = df['Discord'].astype(str)
-
         df['rsn_lower'] = df['rsn'].str.lower()
         fools = discord.utils.get(guild.roles, name="Fools")
         iron = discord.utils.get(guild.roles, name="Iron Bar")
         guest = discord.utils.get(guild.roles, name="Guest")
 
         if rsn in df['rsn_lower'].values:
-
             index = df.index[df['rsn_lower'] == rsn].tolist()[0]
-
-            df.at[index, 'Discord'] =  str(message.author.id)
-
+            df.at[index, 'Discord'] = str(message.author.id)
             df.to_csv(csv_file, index=False)
 
-            await message.channel.send(
-                f"Discord ID {message.author.mention} has been linked to RSN '{df.at[index, 'rsn']}'.")
-            await message.author.add_roles(fools)
-            await message.author.add_roles(iron)
+            original_rsn = df.at[index, 'rsn']
+            sent_message = await message.channel.send(
+                f"Discord ID {message.author.mention} has been linked to RSN '{df.at[index, 'rsn']}'."
+            )
+            await message.author.add_roles(fools, iron)
             await message.author.remove_roles(guest)
+
+            await asyncio.sleep(10)  # Wait for 10 seconds
+            await sent_message.delete()
+            await message.delete()
+
+            try:
+                await message.author.edit(nick=original_rsn)
+            except discord.Forbidden:
+                await message.channel.send("I don't have permission to change your nickname.")
         else:
-            await message.channel.send(
-                f"RSN '{rsn}' not found in the clan list. if you aren't in the clan, welcome as a guest!")
+            await message.channel.send(f"RSN '{rsn}' not found in the clan list. If you aren't in the clan, welcome as a guest!")
             await message.author.add_roles(guest)
 
-#Start OTW Selection
-    if content_lower.startswith("!otwselect") and not message.author.bot:
-        # Choose boss, ensuring it's not in the last 3
-        # Load data if it exists for BOTW & SOTW
+    # Checking for the '!otwselect' command
+    elif content_lower.startswith("!otwselect") and not message.author.bot:
         data_file_path = 'selection_data.json'
 
+        # Load data if it exists for BOTW & SOTW
         if os.path.exists(data_file_path):
             with open(data_file_path, 'r') as f:
                 data = json.load(f)
                 last_3_bosses = deque(data['last_3_bosses'], maxlen=3)
                 last_3_skills = deque(data['last_3_skills'], maxlen=3)
-            # Debug notifications
-            print("DEBUG: Loaded previous selections:")
-            print("Last 3 bosses:", list(last_3_bosses))
-            print("Last 3 skills:", list(last_3_skills))
         else:
             last_3_bosses = deque(maxlen=3)
             last_3_skills = deque(maxlen=3)
+
         while True:
             boss_choice = random.choice(boss_of_the_week)
             if boss_choice not in last_3_bosses:
                 break
         last_3_bosses.append(boss_choice)
 
-        # Choose skill, ensuring it's not in the last 3
         while True:
             skill_choice = random.choice(skill_of_the_week)
             if skill_choice not in last_3_skills:
@@ -180,7 +180,7 @@ async def on_message(message):
 #End OTW Selection
 
 #Import Clan JSON Data Start
-    if message.content.startswith("!importjson") and not message.author.bot:
+    elif message.content.startswith("!importjson") and not message.author.bot:
         json_data = message.content[len("!importjson") + 1:].strip()
 
         try:
@@ -191,7 +191,7 @@ async def on_message(message):
     # Import Clan JSON Data End
 
    #Clan Updater from @Bobness Start
-    if message.content.startswith("!updateclan") and not message.author.bot:
+    elif message.content.startswith("!updateclan") and not message.author.bot:
         # Define the file paths directly here
         JSON_FILE = "clan_member_data.json"
         CSV_FILE = "fools_union_member_data.csv"
@@ -297,7 +297,7 @@ async def on_message(message):
         #Clan Updater End
 
     #Export Clan CSV to Discord Start
-    if content_lower.startswith('!export') and not message.author.bot:
+    elif content_lower.startswith('!export') and not message.author.bot:
         try:
             file = discord.File("fools_union_member_data.csv")
             await message.channel.send("Here is the file you requested:", file=file)
@@ -306,7 +306,9 @@ async def on_message(message):
                 #Expoert Clan CSV to Discord end
 
     #Add Joker Points Start
-    if content_lower.startswith('!jpadd') and not message.author.bot:
+    elif content_lower.startswith('!jpadd') and not message.author.bot:
+        csv_file = "fools_union_member_data.csv"
+        df = pd.read_csv(csv_file)
         try:
             # Parse the command and extract the RSN name
             rsn = content_lower[len('!jpadd '):].strip()
@@ -317,18 +319,21 @@ async def on_message(message):
             if rsn in df['rsn_lower'].values:
                 index = df.index[df['rsn_lower'] == rsn].tolist()[0]
 
-                # Add 10 points to "Other Points"
+                # Add 5 points to "Other Points"
                 df.at[index, 'Other Points'] += 5
+
+                # Calculate total points (Points From Time in Clan + Other Points)
+                df.at[index, 'Total Points'] = df.at[index, 'Points From Time in Clan'] + df.at[index, 'Other Points']
 
                 # Save the DataFrame back to the CSV
                 df.to_csv(csv_file, index=False)
 
-                await message.channel.send(
-                    f"Added 10 points to '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Other Points']} points.")
+                await message.channel.send(f"Added 5 points to '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}")
             else:
                 await message.channel.send(f"RSN '{rsn}' not found in the clan list.")
         except Exception as e:
             await message.channel.send(f"An error occurred: {str(e)}")
+
             #Add Joker Points End
 
 
