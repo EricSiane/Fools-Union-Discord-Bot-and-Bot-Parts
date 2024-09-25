@@ -13,12 +13,6 @@ from datetime import datetime
 from Defs import clan_import
 
 
-
-
-csv_file = "fools_union_member_data.csv"
-
-df = pd.read_csv(csv_file)
-
 # Lists needed for BOTW & SOTW
 skill_of_the_week = ["Runecraft", "Construction", "Agility", "Herblore", "Thieving", "Crafting", "Fletching", "Slayer", "Hunter", "Mining", "Smithing", "Fishing", "Cooking", "Firemaking", "Woodcutting", "Farming"]
 
@@ -50,10 +44,23 @@ def handle_storedata_command(data_to_import):
         # 1. Parse the imported data
         imported_data = json.loads(data_to_import)
 
+        # Remove trailing spaces from values in the imported data
+        for entry in imported_data:
+            for key, value in entry.items():
+                if isinstance(value, str):
+                    entry[key] = value.rstrip()
+
         # 2. (Optional) Read existing data from your JSON file
         try:
             with open('clan_member_data.json', 'r') as f:
                 existing_data = json.load(f)
+
+            # Remove trailing spaces from values in the existing data
+            for entry in existing_data:
+                for key, value in entry.items():
+                    if isinstance(value, str):
+                        entry[key] = value.rstrip()
+
         except FileNotFoundError:
             existing_data = []  # Start with an empty list if the file doesn't exist
 
@@ -72,7 +79,9 @@ def handle_storedata_command(data_to_import):
 
         # 4. Write the updated data back to the JSON file
         with open('clan_member_data.json', 'w') as f:
-            json.dump(existing_data, f, indent=4)  # indent for better readability
+            # Ensure no trailing whitespace when writing
+            json_str = json.dumps(existing_data, indent=4)
+            f.write(json_str.rstrip() + "\n")  # Add newline for clarity
 
         return "Data imported successfully!"
 
@@ -90,8 +99,15 @@ async def on_message(message):
     guild = message.guild
     content_lower = message.content.lower()
 
-    if content_lower.startswith('!rsn') and not message.author.bot:
-        rsn = content_lower[len('!rsn '):].strip()
+    if content_lower.startswith('!rsn ') and not message.author.bot:
+        rsn = content_lower[len('!rsn '):]
+
+        csv_file = "fools_union_member_data.csv"
+
+        df = pd.read_csv(csv_file)
+
+        # Convert the 'Discord' column to string type
+        df['Discord'] = df['Discord'].astype(str)
 
         df['rsn_lower'] = df['rsn'].str.lower()
         fools = discord.utils.get(guild.roles, name="Fools")
@@ -102,18 +118,19 @@ async def on_message(message):
 
             index = df.index[df['rsn_lower'] == rsn].tolist()[0]
 
-            df.at[index, 'Discord'] = str(message.author.id)
+            df.at[index, 'Discord'] =  str(message.author.id)
 
             df.to_csv(csv_file, index=False)
 
-            await message.channel.send(f"Discord ID {message.author.mention} has been linked to RSN '{df.at[index, 'rsn']}'.")
+            await message.channel.send(
+                f"Discord ID {message.author.mention} has been linked to RSN '{df.at[index, 'rsn']}'.")
             await message.author.add_roles(fools)
             await message.author.add_roles(iron)
             await message.author.remove_roles(guest)
         else:
-            await message.channel.send(f"RSN '{rsn}' not found in the clan list. if you aren't in the clan, welcome as a guest!")
+            await message.channel.send(
+                f"RSN '{rsn}' not found in the clan list. if you aren't in the clan, welcome as a guest!")
             await message.author.add_roles(guest)
-
 
 #Start OTW Selection
     if content_lower.startswith("!otwselect") and not message.author.bot:
@@ -218,7 +235,8 @@ async def on_message(message):
                         member["points from time in clan"],
                         0,
                         member["points from time in clan"],
-                        []
+                        [],
+                        [],
                     ]
             return clan_csv
 
