@@ -2,12 +2,18 @@ import json
 import pandas as pd
 import argparse
 import discord
+from discord.ext import commands
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import os
 import random
 from collections import deque
 import json
+from datetime import datetime
+from Defs import clan_import
+
+
+
 
 csv_file = "fools_union_member_data.csv"
 
@@ -38,9 +44,46 @@ vc_id = os.getenv("CHANNEL_ID")
 #print(vc_id)
 #Bot Init End
 
+#Defs
+def handle_storedata_command(data_to_import):
+    try:
+        # 1. Parse the imported data
+        imported_data = json.loads(data_to_import)
+
+        # 2. (Optional) Read existing data from your JSON file
+        try:
+            with open('clan_member_data.json', 'r') as f:
+                existing_data = json.load(f)
+        except FileNotFoundError:
+            existing_data = []  # Start with an empty list if the file doesn't exist
+
+        # 3. Combine or update data (choose one based on your needs)
+        # Option 1: Append new data to existing data
+        existing_data.extend(imported_data)
+
+        # Option 2: Update existing data with new data (matching by 'rsn')
+        # for new_entry in imported_data:
+        #     for existing_entry in existing_data:
+        #         if new_entry['rsn'] == existing_entry['rsn']:
+        #             existing_entry.update(new_entry)  # Update existing entry
+        #             break
+        #     else:  # If no match found, append the new entry
+        #         existing_data.append(new_entry)
+
+        # 4. Write the updated data back to the JSON file
+        with open('clan_member_data.json', 'w') as f:
+            json.dump(existing_data, f, indent=4)  # indent for better readability
+
+        return "Data imported successfully!"
+
+    except json.JSONDecodeError:
+        return "Error: Invalid JSON data provided."
+
+#Start Bot commands
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}!')
+
 
 @bot.event
 async def on_message(message):
@@ -70,6 +113,8 @@ async def on_message(message):
         else:
             await message.channel.send(f"RSN '{rsn}' not found in the clan list. if you aren't in the clan, welcome as a guest!")
             await message.author.add_roles(guest)
+
+
 #Start OTW Selection
     if content_lower.startswith("!otwselect") and not message.author.bot:
         # Choose boss, ensuring it's not in the last 3
@@ -116,13 +161,133 @@ async def on_message(message):
         print("Last 3 bosses:", list(last_3_bosses))
         print("Last 3 skills:", list(last_3_skills))
 #End OTW Selection
+
+#Import Clan JSON Data Start
+    if message.content.startswith("!importjson") and not message.author.bot:
+        json_data = message.content[len("!importjson") + 1:].strip()
+
+        try:
+            result = handle_storedata_command(json_data)  # Use your existing function
+            await message.channel.send(result)
+        except Exception as e:
+            await message.channel.send(f"An error occurred during import: {e}")
+    # Import Clan JSON Data End
+
+   #Clan Updater from @Bobness Start
+    if message.content.startswith("!updateclan") and not message.author.bot:
+        # Define the file paths directly here
+        JSON_FILE = "clan_member_data.json"
+        CSV_FILE = "fools_union_member_data.csv"
+
+        def load_data(json_file):
+            """Loads member data from a JSON file."""
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+            return data
+
+        def calculate_member_stats(members):
+            """Calculates additional stats for each member."""
+            today = datetime.today()
+            for member in members:
+                joined_date = datetime.strptime(member["joinedDate"], "%d-%b-%Y")
+                days_elapsed = (today - joined_date).days
+                member["days in clan"] = days_elapsed
+                member["points from time in clan"] = (days_elapsed // 5)
+                member["joinedDate"] = joined_date.strftime("%#m/%#d/%Y")  # Format date
+            return members
+
+        def update_clan_csv(clan_csv, members):
+            """Updates the clan CSV with member data."""
+            for member in members:
+                # Check if member exists in CSV
+                existing_member = clan_csv[clan_csv['rsn'].str.rstrip() == member['rsn'].rstrip()]
+
+                if not existing_member.empty:
+                    # Update existing member
+                    index = existing_member.index[0]
+                    clan_csv.at[index, 'Points From Time in Clan'] = member["points from time in clan"]
+                    clan_csv.at[index, 'Days in Clan'] = member["days in clan"]
+                else:
+                    # Add new member
+                    clan_csv.loc[len(clan_csv)] = [
+                        member['rsn'],
+                        member["joinedDate"],
+                        "Bronze Bar",
+                        "",
+                        member["days in clan"],
+                        member["points from time in clan"],
+                        0,
+                        member["points from time in clan"],
+                        []
+                    ]
+            return clan_csv
+
+        def update_ranks(clan_csv):
+            """Updates ranks based on total points."""
+
+            def get_new_rank(total_points):
+                """Determines the new rank based on total points."""
+                rank_thresholds = [
+                    (10, "Bronze Bar"),
+                    (30, "Iron Bar"),
+                    (50, "Steel Bar"),
+                    (75, "Gold Bar"),
+                    (100, "Mithril Bar"),
+                    (125, "Adamant Bar"),
+                    (150, "Rune Bar"),
+                    (200, "Dragon Bar"),
+                    (250, "Onyx"),
+                ]
+                for threshold, rank in rank_thresholds:
+                    if total_points < threshold:
+                        return rank
+                return "Zenyte"
+
+            # Calculate total points and update ranks efficiently using pandas apply
+            clan_csv['Total Points'] = clan_csv['Points From Time in Clan'] + clan_csv['Other Points']
+            clan_csv['new_rank'] = clan_csv['Total Points'].apply(get_new_rank)
+
+            # Identify and print rank changes
+            rank_changed = clan_csv['rank'] != clan_csv['new_rank']
+            for _, row in clan_csv[rank_changed].iterrows():
+                print(f"{row['rsn']} rank has changed to: {row['new_rank']}")
+
+            # Update the 'rank' column
+            clan_csv['rank'] = clan_csv['new_rank']
+            clan_csv.drop(columns=['new_rank'], inplace=True)  # Remove temporary column
+
+            print("Updated!")
+            return clan_csv
+
+        def main():
+            # Load data directly from the files
+            members = load_data(JSON_FILE)
+            members = calculate_member_stats(members)
+            clan_csv = pd.read_csv(CSV_FILE)
+            clan_csv['rsn'] = clan_csv['rsn'].astype(str)
+
+            # Update CSV and ranks
+            clan_csv = update_clan_csv(clan_csv, members)
+            clan_csv = update_ranks(clan_csv)
+
+            # Save updated CSV
+            clan_csv.to_csv(CSV_FILE, index=False)
+
+        if __name__ == "__main__":
+            main()
+        await message.channel.send(f"Clan has been updated!")
+        #Clan Updater End
+
+    #Export Clan CSV to Discord Start
     if content_lower.startswith('!export') and not message.author.bot:
         try:
             file = discord.File("fools_union_member_data.csv")
             await message.channel.send("Here is the file you requested:", file=file)
         except Exception as e:
             await message.channel.send(f"Failed to send file: {e}")
+                #Expoert Clan CSV to Discord end
 
+    #Add Joker Points Start
     if content_lower.startswith('!jpadd') and not message.author.bot:
         try:
             # Parse the command and extract the RSN name
@@ -146,6 +311,8 @@ async def on_message(message):
                 await message.channel.send(f"RSN '{rsn}' not found in the clan list.")
         except Exception as e:
             await message.channel.send(f"An error occurred: {str(e)}")
+            #Add Joker Points End
+
 
 #Start MakeAVC
 TARGET_VOICE_CHANNEL_ID = int(vc_id)
@@ -237,5 +404,8 @@ async def on_voice_state_update(member, before, after):
                 save_channels_to_json()
 
 #End MakeAVC
+#Data Import
+
+
 
 bot.run(bot_token)
