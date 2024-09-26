@@ -1,5 +1,4 @@
 import asyncio
-import json
 import pandas as pd
 import argparse
 import discord
@@ -11,7 +10,6 @@ import random
 from collections import deque
 import json
 from datetime import datetime
-from Defs import clan_import
 
 
 # Lists needed for BOTW & SOTW
@@ -29,14 +27,17 @@ intents.members = True
 intents.voice_states = True
 intents.presences = True
 intents.message_content = True
+intents.reactions = True
+intents.guilds = True
 
 bot = discord.Client(intents=intents)
 # Load env variables for bot and channel
 load_dotenv()
 bot_token = os.getenv("BOT_TOKEN")
-#print(bot_token)
 vc_id = os.getenv("CHANNEL_ID")
-#print(vc_id)
+
+# Initialize reaction_role_mapping
+reaction_role_mapping = {}
 #Bot Init End
 
 #Defs
@@ -64,21 +65,7 @@ def handle_storedata_command(data_to_import):
 
         except FileNotFoundError:
             existing_data = []  # Start with an empty list if the file doesn't exist
-
-        # 3. Combine or update data (choose one based on your needs)
-        # Option 1: Append new data to existing data
         existing_data.extend(imported_data)
-
-        # Option 2: Update existing data with new data (matching by 'rsn')
-        # for new_entry in imported_data:
-        #     for existing_entry in existing_data:
-        #         if new_entry['rsn'] == existing_entry['rsn']:
-        #             existing_entry.update(new_entry)  # Update existing entry
-        #             break
-        #     else:  # If no match found, append the new entry
-        #         existing_data.append(new_entry)
-
-        # 4. Write the updated data back to the JSON file
         with open('clan_member_data.json', 'w') as f:
             # Ensure no trailing whitespace when writing
             json_str = json.dumps(existing_data, indent=4)
@@ -89,10 +76,79 @@ def handle_storedata_command(data_to_import):
     except json.JSONDecodeError:
         return "Error: Invalid JSON data provided."
 
+# Data handling functions
+def save_data(data):
+    with open('reaction_role_mapping.json', 'w') as f:
+        json.dump(data, f, indent=4)
+
+def load_data():
+    global reaction_role_mapping
+    try:
+        with open('reaction_role_mapping.json', 'r') as f:
+            reaction_role_mapping = json.load(f)
+    except FileNotFoundError:
+        reaction_role_mapping = {}
+
+# Load data on startup
+load_data()
+
+async def assign_or_remove_roles_for_existing_reactions():
+    """Assign or remove roles for users who reacted or unreacted while the bot was offline."""
+    for message_id, mapping in reaction_role_mapping.items():
+        guild = discord.utils.get(bot.guilds, id=mapping.get("guild_id"))
+        channel = guild.get_channel(mapping.get("channel_id"))
+        if not channel:
+            continue
+        try:
+            message = await channel.fetch_message(int(message_id))
+
+            # Iterate over the mappings for each emoji and role ID
+            for emoji, role_id in mapping['mappings'].items():
+                role = guild.get_role(role_id)
+                reacted_users = set()  # Store users who reacted with this emoji
+
+                # Collect users who reacted with the expected emoji
+                for reaction in message.reactions:
+                    if str(reaction.emoji) == emoji:
+                        async for user in reaction.users():
+                            if user != bot.user:
+                                member = guild.get_member(user.id) or await guild.fetch_member(user.id)
+                                reacted_users.add(member.id)
+
+                                # If the member doesn't have the role, assign it
+                                if role not in member.roles:
+                                    try:
+                                        await member.add_roles(role)
+                                        print(f"Assigned role {role.name} to {member.name}")
+                                    except discord.Forbidden:
+                                        print(f"Bot doesn't have permission to assign the role {role.name} to {member.name}")
+                                    except discord.HTTPException as e:
+                                        print(f"Failed to assign role {role.name} due to an error: {e}")
+
+                # Now check for users who have the role but didn't react with this emoji
+                role_members = set(member.id for member in guild.members if role in member.roles)
+                for member_id in role_members - reacted_users:
+                    member = guild.get_member(member_id) or await guild.fetch_member(member_id)
+                    if member:
+                        try:
+                            await member.remove_roles(role)
+                            print(f"Removed role {role.name} from {member.name}")
+                        except discord.Forbidden:
+                            print(f"Bot doesn't have permission to remove the role {role.name} from {member.name}")
+                        except discord.HTTPException as e:
+                            print(f"Failed to remove role {role.name} due to an error: {e}")
+
+        except discord.NotFound:
+            print(f"Message with ID {message_id} not found")
+        except discord.HTTPException as e:
+            print(f"Error fetching message or assigning/removing roles: {e}")
+
+
 #Start Bot commands
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user}!')
+    print(f'Bot is ready. Logged in as {bot.user}')
+    await assign_or_remove_roles_for_existing_reactions()
 
 
 @bot.event
@@ -138,7 +194,7 @@ async def on_message(message):
             await message.author.add_roles(guest)
 
     # Checking for the '!otwselect' command
-    elif content_lower.startswith("!otwselect") and not message.author.bot:
+    if content_lower.startswith("!otwselect") and not message.author.bot:
         data_file_path = 'selection_data.json'
 
         # Load data if it exists for BOTW & SOTW
@@ -180,12 +236,13 @@ async def on_message(message):
 #End OTW Selection
 
 #Import Clan JSON Data Start
-    elif message.content.startswith("!importjson") and not message.author.bot:
+    if message.content.startswith("!importjson") and not message.author.bot:
         json_data = message.content[len("!importjson") + 1:].strip()
 
         try:
             result = handle_storedata_command(json_data)  # Use your existing function
             await message.channel.send(result)
+            await message.delete()
         except Exception as e:
             await message.channel.send(f"An error occurred during import: {e}")
     # Import Clan JSON Data End
@@ -297,7 +354,7 @@ async def on_message(message):
         #Clan Updater End
 
     #Export Clan CSV to Discord Start
-    elif content_lower.startswith('!export') and not message.author.bot:
+    if content_lower.startswith('!export') and not message.author.bot:
         try:
             file = discord.File("fools_union_member_data.csv")
             await message.channel.send("Here is the file you requested:", file=file)
@@ -306,7 +363,7 @@ async def on_message(message):
                 #Expoert Clan CSV to Discord end
 
     #Add Joker Points Start
-    elif content_lower.startswith('!jpadd') and not message.author.bot:
+    if content_lower.startswith('!jpadd') and not message.author.bot:
         csv_file = "fools_union_member_data.csv"
         df = pd.read_csv(csv_file)
         try:
@@ -336,6 +393,80 @@ async def on_message(message):
 
             #Add Joker Points End
 
+    if message.content.startswith('!reactrole') and message.author != bot.user:
+        try:
+            parts = message.content.split()
+            if len(parts) != 4:  # Check for exactly 4 arguments
+                raise ValueError("Invalid command format.")
+
+            message_id = int(parts[1])
+            emoji = parts[2]
+            role_mention = parts[3]
+            role_id = int(role_mention[3:-1])
+            role = message.guild.get_role(role_id)
+
+            target_message = await message.channel.fetch_message(message_id)
+
+            # Add the reaction to the target message
+            await target_message.add_reaction(emoji)
+
+            # If the message ID is not in the mapping, create a new entry
+            if str(message_id) not in reaction_role_mapping:
+                reaction_role_mapping[str(message_id)] = {
+                    "mappings": {},
+                    "guild_id": message.guild.id,
+                    "channel_id": message.channel.id
+                }
+
+            # Add or update the mapping for this emoji and role
+            reaction_role_mapping[str(message_id)]["mappings"][emoji] = role.id
+
+            save_data(reaction_role_mapping)
+
+            await message.channel.send(
+                f"Successfully added {emoji} to message {message_id} and mapped it to role {role.name}.")
+
+        except ValueError as e:
+            await message.channel.send(
+                f"Invalid command format. Use: `!reactrole <message_id> <emoji> <@role>` Error: {e}")
+        except discord.NotFound:
+            await message.channel.send("Message or role not found!")
+        except discord.HTTPException as e:
+            await message.channel.send(f"An error occurred: {e}")
+
+
+# Reaction events
+async def handle_reaction(payload, add_or_remove):
+    message_id = str(payload.message_id)
+    if message_id in reaction_role_mapping:
+        mappings = reaction_role_mapping[message_id]["mappings"]  # Access the 'mappings' dictionary
+
+        # Check if the reacted emoji is in the mappings
+        if str(payload.emoji) in mappings:
+            guild = bot.get_guild(payload.guild_id)
+            role = guild.get_role(mappings[str(payload.emoji)])  # Get the role ID from the mappings
+            member = guild.get_member(payload.user_id) or await guild.fetch_member(payload.user_id)
+
+            if member:
+                try:
+                    if add_or_remove == "add":
+                        await member.add_roles(role)
+                        print(f"Assigned role {role.name} to {member.name}")
+                    elif add_or_remove == "remove":
+                        await member.remove_roles(role)
+                        print(f"Removed role {role.name} from {member.name}")
+                except discord.Forbidden:
+                    print(f"Bot doesn't have permission to {'assign' if add_or_remove == 'add' else 'remove'} the role {role.name}")
+                except discord.HTTPException as e:
+                    print(f"Failed to {'assign' if add_or_remove == 'add' else 'remove'} the role due to an error: {e}")
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    await handle_reaction(payload, "add")
+
+@bot.event
+async def on_raw_reaction_remove(payload):
+    await handle_reaction(payload, "remove")
 
 #Start MakeAVC
 TARGET_VOICE_CHANNEL_ID = int(vc_id)
@@ -361,21 +492,17 @@ def save_channels_to_json():
         json.dump(created_channels, f)
 
 
-@bot.event
-async def on_ready():
-    print(f'Logged in as {bot.user}!')
+# Load the created channels from the JSON file when the bot starts
+load_channels_from_json()
 
-    # Load the created channels from the JSON file when the bot starts
-    load_channels_from_json()
-
-    # Check if the channels still exist and delete the ones that don't
-    guild = discord.utils.get(bot.guilds, id=int(vc_id))
-    if guild:
-        for user_id, channel_id in list(created_channels.items()):
-            channel = guild.get_channel(channel_id)
-            if not channel:  # If the channel doesn't exist, remove it from the dictionary
-                del created_channels[user_id]
-        save_channels_to_json()
+# Check if the channels still exist and delete the ones that don't
+guild = discord.utils.get(bot.guilds, id=int(vc_id))
+if guild:
+    for user_id, channel_id in list(created_channels.items()):
+        channel = guild.get_channel(channel_id)
+        if not channel:  # If the channel doesn't exist, remove it from the dictionary
+            del created_channels[user_id]
+    save_channels_to_json()
 
 
 @bot.event
@@ -427,7 +554,6 @@ async def on_voice_state_update(member, before, after):
                 save_channels_to_json()
 
 #End MakeAVC
-#Data Import
 
 
 
