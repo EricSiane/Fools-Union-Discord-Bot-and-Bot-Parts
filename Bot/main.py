@@ -38,7 +38,7 @@ newbie_role_id = os.getenv("NEWBIE_ROLE_ID")
 welcome_channel = os.getenv("WELCOME_MESSAGE_CHANNEL")
 welcome_message = os.getenv("WELCOME_MESSAGE_ID")
 admin_role_id = int(os.getenv("ADMIN_ROLE_ID"))
-
+ANNOUNCEMENT_CHANNEL_ID = int(os.getenv("RANK_CHANNEL_ID"))
 
 COMMANDS_FILE = DATA_DIR / "custom_commands.json"
 
@@ -222,56 +222,84 @@ async def on_ready():
             await message.delete()
 
             # Checking for the '!rsn' command
-            if content_lower.startswith('!rsn ') and not message.author.bot:
-                rsn = content_lower[len('!rsn '):]
+        if content_lower.startswith('!rsn ') and not message.author.bot:
+            rsn = content_lower[len('!rsn '):]
 
-                csv_file = DATA_DIR / "fools_union_member_data.csv"
-                df = pd.read_csv(csv_file)
+            csv_file = DATA_DIR / "fools_union_member_data.csv"
+            df = pd.read_csv(csv_file)
+            rank_thresholds = [
+                (0, "Bronze Bar"),
+                (10, "Iron Bar"),
+                (30, "Steel Bar"),
+                (50, "Gold Bar"),
+                (75, "Mithril Bar"),
+                (100, "Adamant Bar"),
+                (125, "Rune Bar"),
+                (150, "Dragon Bar"),
+                (200, "Onyx"),
+                (250, "Zenyte")
+            ]
 
-                df['Discord'] = df['Discord'].astype(str)
-                df['rsn_lower'] = df['rsn'].str.lower()
-                fools = discord.utils.get(guild.roles, name="Fools")
-                iron = discord.utils.get(guild.roles, name="Iron Bar")
-                guest = discord.utils.get(guild.roles, name="Guest")
-                joiner = discord.utils.get(guild.roles, name="Joiner")
+            df['Discord'] = df['Discord'].astype(str)
+            df['rsn_lower'] = df['rsn'].str.lower()
+            fools = discord.utils.get(guild.roles, name="Fools")
+            iron = discord.utils.get(guild.roles, name="Iron Bar")
+            guest = discord.utils.get(guild.roles, name="Guest")
+            joiner = discord.utils.get(guild.roles, name="Joiner")
 
-                if rsn in df['rsn_lower'].values:
-                    index = df.index[df['rsn_lower'] == rsn].tolist()[0]
-                    df.at[index, 'Discord'] = str(message.author.id)
+            if rsn in df['rsn_lower'].values:
+                index = df.index[df['rsn_lower'] == rsn].tolist()[0]
+                df.at[index, 'Discord'] = str(message.author.id)
 
-                    # Add 10 points if Discord ID is found in the Discord column and points haven't been added yet
-                    if str(message.author.id) in df['Discord'].values and df.at[index, 'Total Points'] == df.at[
-                        index, 'Points From Time in Clan'] + df.at[index, 'Other Points']:
-                        df.at[index, 'Total Points'] += 10
+                # Add 10 points if Discord ID is found in the Discord column and points haven't been added yet
+                if str(message.author.id) in df['Discord'].values and df.at[index, 'Total Points'] == df.at[
+                    index, 'Points From Time in Clan'] + df.at[index, 'Other Points']:
+                    df.at[index, 'Total Points'] += 10
 
-                    df.to_csv(csv_file, index=False)
+                new_points = df.at[index, 'Total Points']
 
-                    original_rsn = df.at[index, 'rsn']
-                    sent_message = await message.channel.send(
-                        f"Discord ID {message.author.mention} has been linked to RSN '{df.at[index, 'rsn']}'."
-                    )
-                    await message.author.add_roles(fools, iron)
-                    await message.author.remove_roles(guest)
-                    await message.author.remove_roles(joiner)
+                # Check if the new points exceed any rank threshold
+                new_rank = None
+                for threshold, rank in sorted(rank_thresholds):
+                    if new_points >= threshold:
+                        new_rank = rank
+                    else:
+                        break
 
-                    await asyncio.sleep(10)  # Wait for 10 seconds
-                    await sent_message.delete()
-                    await message.delete()
+                # Update the rank column if a new rank is achieved
+                if new_rank:
+                    df.at[index, 'rank'] = new_rank
+                    announcement_channel = bot.get_channel(ANNOUNCEMENT_CHANNEL_ID)
+                    await announcement_channel.send(f"{df.at[index, 'rsn']} has been promoted to {new_rank}!")
 
-                    try:
-                        await message.author.edit(nick=original_rsn)
-                    except discord.Forbidden:
-                        await message.channel.send("I don't have permission to change your nickname.")
-                else:
-                    await message.channel.send(
-                        f"RSN '{rsn}' not found in the clan list. If you aren't in the clan, welcome as a guest!")
-                    await message.author.add_roles(guest)
-                    await message.author.remove_roles(joiner)
-                    try:
-                        await message.author.edit(nick=rsn)  # Change nickname to the entered RSN
-                    except discord.Forbidden:
-                        await message.channel.send("I don't have permission to change your nickname.")
+                df.to_csv(csv_file, index=False)
 
+                original_rsn = df.at[index, 'rsn']
+                sent_message = await message.channel.send(
+                    f"Discord ID {message.author.mention} has been linked to RSN '{df.at[index, 'rsn']}'."
+                )
+                await message.author.add_roles(fools, iron)
+                await message.author.remove_roles(guest)
+                await message.author.remove_roles(joiner)
+
+                await asyncio.sleep(10)  # Wait for 10 seconds
+                await sent_message.delete()
+                await message.delete()
+
+                try:
+                    await message.author.edit(nick=original_rsn)
+                except discord.Forbidden:
+                    await message.channel.send("I don't have permission to change your nickname.")
+            else:
+                await message.channel.send(
+                    f"RSN '{rsn}' not found in the clan list. If you aren't in the clan, welcome as a guest!")
+                await message.author.add_roles(guest)
+                await message.author.remove_roles(joiner)
+                try:
+                    await message.author.edit(nick=rsn)  # Change nickname to the entered RSN
+                except discord.Forbidden:
+                    await message.channel.send("I don't have permission to change your nickname.")
+#!Points Command
         if content_lower.startswith('!points ') and not message.author.bot:
             rsn = content_lower[len('!points '):].strip().lower()
 
@@ -287,13 +315,37 @@ async def on_ready():
                 time_in_clan = df.at[index, 'Days in Clan']
                 other_points = df.at[index, 'Other Points']
                 total_points = df.at[index, 'Total Points']
+                # Define rank thresholds
+                rank_thresholds = [
+                    (0, "Bronze Bar"),
+                    (10, "Iron Bar"),
+                    (30, "Steel Bar"),
+                    (50, "Gold Bar"),
+                    (75, "Mithril Bar"),
+                    (100, "Adamant Bar"),
+                    (125, "Rune Bar"),
+                    (150, "Dragon Bar"),
+                    (200, "Onyx"),
+                    (250, "Zenyte")
+                ]
+
+                # Determine the next rank and points needed
+                next_rank = None
+                points_needed = None
+                for threshold, rank in rank_thresholds:
+                    if total_points < threshold:
+                        next_rank = rank
+                        points_needed = threshold - total_points
+                        break
 
                 await message.channel.send(
                     f"RSN: {df.at[index, 'rsn']}\n"
                     f"Discord Linked: {'Yes' if discord_linked else 'No'}\n"
                     f"Time in Clan: {time_in_clan} days\n"
                     f"Other Points: {other_points}\n"
-                    f"Total Points: {total_points}"
+                    f"Total Points: {total_points}\n"
+                    f"Next Rank: {next_rank}\n"
+                    f"Points Needed for Next Rank: {points_needed}"
                 )
             else:
                 await message.channel.send(f"RSN '{rsn}' not found in the clan list.")
@@ -363,7 +415,7 @@ async def on_ready():
         # Clan Updater
 
         if message.content.startswith("!updateclan") and not message.author.bot:
-        #Check if the user has the admin role
+            # Check if the user has the admin role
             if any(role.id == admin_role_id for role in message.author.roles):
                 # Define the file paths directly here
                 JSON_FILE = DATA_DIR / "clan_member_data.json"
@@ -413,8 +465,8 @@ async def on_ready():
                             ]
                     return clan_csv
 
-                def update_ranks(clan_csv):
-                    """Updates ranks based on total points."""
+                async def update_ranks(clan_csv):
+                    """Updates ranks based on total points and sends rank-up messages."""
 
                     def get_new_rank(total_points):
                         """Determines the new rank based on total points."""
@@ -438,9 +490,11 @@ async def on_ready():
                     clan_csv['Total Points'] = clan_csv['Points From Time in Clan'] + clan_csv['Other Points']
                     clan_csv['new_rank'] = clan_csv['Total Points'].apply(get_new_rank)
 
-                    # Identify and print rank changes
+                    # Identify and collect rank changes
+                    rank_changes = []
                     rank_changed = clan_csv['rank'] != clan_csv['new_rank']
                     for _, row in clan_csv[rank_changed].iterrows():
+                        rank_changes.append((row['rsn'], row['new_rank']))
                         print(f"{row['rsn']} rank has changed to: {row['new_rank']}")
 
                     # Update the 'rank' column
@@ -448,9 +502,9 @@ async def on_ready():
                     clan_csv.drop(columns=['new_rank'], inplace=True)  # Remove temporary column
 
                     print("Updated!")
-                    return clan_csv
+                    return clan_csv, rank_changes
 
-                def main():
+                async def main():
                     # Load data directly from the files
                     members = load_data(JSON_FILE)
                     members = calculate_member_stats(members)
@@ -459,17 +513,22 @@ async def on_ready():
 
                     # Update CSV and ranks
                     clan_csv = update_clan_csv(clan_csv, members)
-                    clan_csv = update_ranks(clan_csv)
+                    clan_csv, rank_changes = await update_ranks(clan_csv)
 
                     # Save updated CSV
                     clan_csv.to_csv(CSV_FILE, index=False)
 
-                if __name__ == "__main__":
-                    main()
+                    # Send rank-up messages
+                    if rank_changes:
+                        rank_up_messages = "\n".join(
+                            [f"{rsn} has been promoted to {new_rank}!" for rsn, new_rank in rank_changes])
+                        await message.channel.send(f"Rank Up Notifications:\n{rank_up_messages}")
+
+                await main()
                 await message.channel.send(f"Clan has been updated!")
             else:
                 await message.channel.send("You do not have permission to use this command.")
-                # Clan Updater End
+            # Clan Updater End
 
         # Export Clan CSV to Discord Start
         if content_lower.startswith('!export') and not message.author.bot:
@@ -485,6 +544,7 @@ async def on_ready():
         # Export Clan CSV to Discord end
 
         #Add Joker Points Start
+        # Add Joker Points Start
         if content_lower.startswith('!jpadd') and not message.author.bot:
             # Check if the user has the admin role
             if any(role.id == admin_role_id for role in message.author.roles):
@@ -507,11 +567,43 @@ async def on_ready():
                         df.at[index, 'Total Points'] = df.at[index, 'Points From Time in Clan'] + df.at[
                             index, 'Other Points']
 
+                        # Define rank thresholds
+                        rank_thresholds = [
+                            (0, "Bronze Bar"),
+                            (10, "Iron Bar"),
+                            (30, "Steel Bar"),
+                            (50, "Gold Bar"),
+                            (75, "Mithril Bar"),
+                            (100, "Adamant Bar"),
+                            (125, "Rune Bar"),
+                            (150, "Dragon Bar"),
+                            (200, "Onyx"),
+                            (250, "Zenyte")
+                        ]
+
+                        # Determine the new rank based on total points
+                        new_rank = None
+                        for threshold, rank in rank_thresholds:
+                            if df.at[index, 'Total Points'] >= threshold:
+                                new_rank = rank
+                            else:
+                                break
+
+                        # Check if the rank has changed
+                        if df.at[index, 'rank'] != new_rank:
+                            df.at[index, 'rank'] = new_rank
+                            rank_up_message = f"{df.at[index, 'rsn']} has been promoted to {new_rank}!"
+                        else:
+                            rank_up_message = None
+
                         # Save the DataFrame back to the CSV
                         df.to_csv(csv_file, index=False)
 
-                        await message.channel.send(
-                            f"Added 5 points to '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}")
+                        response_message = f"Added 5 points to '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}"
+                        if rank_up_message:
+                            response_message += f"\n{rank_up_message}"
+
+                        await message.channel.send(response_message)
                     else:
                         await message.channel.send(f"RSN '{rsn}' not found in the clan list.")
                 except Exception as e:
@@ -641,7 +733,7 @@ async def on_ready():
                     await message.channel.send(f"An error occurred: {e}")
             else:
                 await message.channel.send("You do not have permission to use this command.")
-# End of Reaction Role Management
+    # End of Reaction Role Management
         if content_lower.startswith('!addcommand') and any(role.id == admin_role_id for role in message.author.roles):
             try:
                 parts = message.content.split(' ', 2)
@@ -694,6 +786,19 @@ async def on_ready():
                     await message.channel.send(f"Custom command '{command_name}' edited successfully.")
                 else:
                     await message.channel.send(f"Custom command '{command_name}' not found.")
+            except Exception as e:
+                await message.channel.send(f"An error occurred: {e}")
+
+        if content_lower.startswith('!customcommands') and any(
+                role.id == admin_role_id for role in message.author.roles):
+            try:
+                if custom_commands:
+                    embed = discord.Embed(title="Custom Commands", color=discord.Color.blue())
+                    for cmd in custom_commands.keys():
+                        embed.add_field(name=cmd, value="\u200b", inline=False)
+                    await message.channel.send(embed=embed)
+                else:
+                    await message.channel.send("No custom commands found.")
             except Exception as e:
                 await message.channel.send(f"An error occurred: {e}")
 
