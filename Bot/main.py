@@ -36,6 +36,7 @@ vc_id = os.getenv("CHANNEL_ID")
 newbie_role_id = os.getenv("NEWBIE_ROLE_ID")
 welcome_channel = os.getenv("WELCOME_MESSAGE_CHANNEL")
 welcome_message = os.getenv("WELCOME_MESSAGE_ID")
+admin_role_id = int(os.getenv("ADMIN_ROLE_ID"))
 
 # Initialize reaction_role_mapping
 reaction_role_mapping = {}
@@ -279,320 +280,367 @@ async def on_ready():
 
         # Checking for the '!otwselect' command
         if content_lower.startswith("!otwselect") and not message.author.bot:
-            data_file_path = DATA_DIR / 'selection_data.json'
+            # Check if the user has the admin role
+            if any(role.id == admin_role_id for role in message.author.roles):
+                data_file_path = DATA_DIR / 'selection_data.json'
 
-            # Load data if it exists for BOTW & SOTW
-            if os.path.exists(data_file_path):
-                with open(data_file_path, 'r') as f:
-                    data = json.load(f)
-                    last_3_bosses = deque(data['last_3_bosses'], maxlen=3)
-                    last_3_skills = deque(data['last_3_skills'], maxlen=3)
+                # Load data if it exists for BOTW & SOTW
+                if os.path.exists(data_file_path):
+                    with open(data_file_path, 'r') as f:
+                        data = json.load(f)
+                        last_3_bosses = deque(data['last_3_bosses'], maxlen=3)
+                        last_3_skills = deque(data['last_3_skills'], maxlen=3)
+                else:
+                    last_3_bosses = deque(maxlen=3)
+                    last_3_skills = deque(maxlen=3)
+
+                while True:
+                    boss_choice = random.choice(boss_of_the_week)
+                    if boss_choice not in last_3_bosses:
+                        break
+                last_3_bosses.append(boss_choice)
+
+                while True:
+                    skill_choice = random.choice(skill_of_the_week)
+                    if skill_choice not in last_3_skills:
+                        break
+                last_3_skills.append(skill_choice)
+
+                await message.channel.send(f"Boss of the Week: {boss_choice}\nSkill of the Week: {skill_choice}")
+
+                # Save updated data
+                with open(data_file_path, 'w') as f:
+                    data = {
+                        'last_3_bosses': list(last_3_bosses),
+                        'last_3_skills': list(last_3_skills)
+                    }
+                    json.dump(data, f)
+
+                # Debug notifications (optional)
+                print("DEBUG: Updated lists after selection:")
+                print("Last 3 bosses:", list(last_3_bosses))
+                print("Last 3 skills:", list(last_3_skills))
             else:
-                last_3_bosses = deque(maxlen=3)
-                last_3_skills = deque(maxlen=3)
+                await message.channel.send("You do not have permission to use this command.")
+        # End OTW Selection
 
-            while True:
-                boss_choice = random.choice(boss_of_the_week)
-                if boss_choice not in last_3_bosses:
-                    break
-            last_3_bosses.append(boss_choice)
-
-            while True:
-                skill_choice = random.choice(skill_of_the_week)
-                if skill_choice not in last_3_skills:
-                    break
-            last_3_skills.append(skill_choice)
-
-            await message.channel.send(f"Boss of the Week: {boss_choice}\nSkill of the Week: {skill_choice}")
-
-            # Save updated data
-            with open(data_file_path, 'w') as f:
-                data = {
-                    'last_3_bosses': list(last_3_bosses),
-                    'last_3_skills': list(last_3_skills)
-                }
-                json.dump(data, f)
-
-            # Debug notifications (optional)
-            print("DEBUG: Updated lists after selection:")
-            print("Last 3 bosses:", list(last_3_bosses))
-            print("Last 3 skills:", list(last_3_skills))
-    #End OTW Selection
-
-    #Import Clan JSON Data Start
+        # Import Clan JSON Data Start
         if message.content.startswith("!importjson") and not message.author.bot:
-            json_data = message.content[len("!importjson") + 1:].strip()
+            # Check if the user has the admin role
+            if any(role.id == admin_role_id for role in message.author.roles):
+                json_data = message.content[len("!importjson") + 1:].strip()
 
-            try:
-                result = handle_storedata_command(json_data)  # Use your existing function
-                await message.channel.send(result)
-                await message.delete()
-            except Exception as e:
-                await message.channel.send(f"An error occurred during import: {e}")
+                try:
+                    result = handle_storedata_command(json_data)  # Use your existing function
+                    await message.channel.send(result)
+                    await message.delete()
+                except Exception as e:
+                    await message.channel.send(f"An error occurred during import: {e}")
+            else:
+                await message.channel.send("You do not have permission to use this command.")
         # Import Clan JSON Data End
 
-       #Clan Updater
-        elif message.content.startswith("!updateclan") and not message.author.bot:
-            # Define the file paths directly here
-            JSON_FILE = DATA_DIR / "clan_member_data.json"
-            CSV_FILE = DATA_DIR / "fools_union_member_data.csv"
+        # Clan Updater
 
-            def load_data(json_file):
-                """Loads member data from a JSON file."""
-                with open(json_file, 'r') as f:
-                    data = json.load(f)
-                return data
+        if message.content.startswith("!updateclan") and not message.author.bot:
+        #Check if the user has the admin role
+            if any(role.id == admin_role_id for role in message.author.roles):
+                # Define the file paths directly here
+                JSON_FILE = DATA_DIR / "clan_member_data.json"
+                CSV_FILE = DATA_DIR / "fools_union_member_data.csv"
 
-            def calculate_member_stats(members):
-                """Calculates additional stats for each member."""
-                today = datetime.today()
-                for member in members:
-                    joined_date = datetime.strptime(member["joinedDate"], "%d-%b-%Y")
-                    days_elapsed = (today - joined_date).days
-                    member["days in clan"] = days_elapsed
-                    member["points from time in clan"] = (days_elapsed // 5)
-                    member["joinedDate"] = joined_date.strftime("%#m/%#d/%Y")  # Format date
-                return members
+                def load_data(json_file):
+                    """Loads member data from a JSON file."""
+                    with open(json_file, 'r') as f:
+                        data = json.load(f)
+                    return data
 
-            def update_clan_csv(clan_csv, members):
-                """Updates the clan CSV with member data."""
-                for member in members:
-                    # Check if member exists in CSV
-                    existing_member = clan_csv[clan_csv['rsn'].str.rstrip() == member['rsn'].rstrip()]
+                def calculate_member_stats(members):
+                    """Calculates additional stats for each member."""
+                    today = datetime.today()
+                    for member in members:
+                        joined_date = datetime.strptime(member["joinedDate"], "%d-%b-%Y")
+                        days_elapsed = (today - joined_date).days
+                        member["days in clan"] = days_elapsed
+                        member["points from time in clan"] = (days_elapsed // 5)
+                        member["joinedDate"] = joined_date.strftime("%#m/%#d/%Y")  # Format date
+                    return members
 
-                    if not existing_member.empty:
-                        # Update existing member
-                        index = existing_member.index[0]
-                        clan_csv.at[index, 'Points From Time in Clan'] = member["points from time in clan"]
-                        clan_csv.at[index, 'Days in Clan'] = member["days in clan"]
-                    else:
-                        # Add new member
-                        clan_csv.loc[len(clan_csv)] = [
-                            member['rsn'],
-                            member["joinedDate"],
-                            "Bronze Bar",
-                            "",
-                            member["days in clan"],
-                            member["points from time in clan"],
-                            0,
-                            member["points from time in clan"],
-                            [],
-                            [],
+                def update_clan_csv(clan_csv, members):
+                    """Updates the clan CSV with member data."""
+                    for member in members:
+                        # Check if member exists in CSV
+                        existing_member = clan_csv[clan_csv['rsn'].str.rstrip() == member['rsn'].rstrip()]
+
+                        if not existing_member.empty:
+                            # Update existing member
+                            index = existing_member.index[0]
+                            clan_csv.at[index, 'Points From Time in Clan'] = member["points from time in clan"]
+                            clan_csv.at[index, 'Days in Clan'] = member["days in clan"]
+                        else:
+                            # Add new member
+                            clan_csv.loc[len(clan_csv)] = [
+                                member['rsn'],
+                                member["joinedDate"],
+                                "Bronze Bar",
+                                "",
+                                member["days in clan"],
+                                member["points from time in clan"],
+                                0,
+                                member["points from time in clan"],
+                                [],
+                                [],
+                            ]
+                    return clan_csv
+
+                def update_ranks(clan_csv):
+                    """Updates ranks based on total points."""
+
+                    def get_new_rank(total_points):
+                        """Determines the new rank based on total points."""
+                        rank_thresholds = [
+                            (10, "Bronze Bar"),
+                            (30, "Iron Bar"),
+                            (50, "Steel Bar"),
+                            (75, "Gold Bar"),
+                            (100, "Mithril Bar"),
+                            (125, "Adamant Bar"),
+                            (150, "Rune Bar"),
+                            (200, "Dragon Bar"),
+                            (250, "Onyx"),
                         ]
-                return clan_csv
+                        for threshold, rank in rank_thresholds:
+                            if total_points < threshold:
+                                return rank
+                        return "Zenyte"
 
-            def update_ranks(clan_csv):
-                """Updates ranks based on total points."""
+                    # Calculate total points and update ranks efficiently using pandas apply
+                    clan_csv['Total Points'] = clan_csv['Points From Time in Clan'] + clan_csv['Other Points']
+                    clan_csv['new_rank'] = clan_csv['Total Points'].apply(get_new_rank)
 
-                def get_new_rank(total_points):
-                    """Determines the new rank based on total points."""
-                    rank_thresholds = [
-                        (10, "Bronze Bar"),
-                        (30, "Iron Bar"),
-                        (50, "Steel Bar"),
-                        (75, "Gold Bar"),
-                        (100, "Mithril Bar"),
-                        (125, "Adamant Bar"),
-                        (150, "Rune Bar"),
-                        (200, "Dragon Bar"),
-                        (250, "Onyx"),
-                    ]
-                    for threshold, rank in rank_thresholds:
-                        if total_points < threshold:
-                            return rank
-                    return "Zenyte"
+                    # Identify and print rank changes
+                    rank_changed = clan_csv['rank'] != clan_csv['new_rank']
+                    for _, row in clan_csv[rank_changed].iterrows():
+                        print(f"{row['rsn']} rank has changed to: {row['new_rank']}")
 
-                # Calculate total points and update ranks efficiently using pandas apply
-                clan_csv['Total Points'] = clan_csv['Points From Time in Clan'] + clan_csv['Other Points']
-                clan_csv['new_rank'] = clan_csv['Total Points'].apply(get_new_rank)
+                    # Update the 'rank' column
+                    clan_csv['rank'] = clan_csv['new_rank']
+                    clan_csv.drop(columns=['new_rank'], inplace=True)  # Remove temporary column
 
-                # Identify and print rank changes
-                rank_changed = clan_csv['rank'] != clan_csv['new_rank']
-                for _, row in clan_csv[rank_changed].iterrows():
-                    print(f"{row['rsn']} rank has changed to: {row['new_rank']}")
+                    print("Updated!")
+                    return clan_csv
 
-                # Update the 'rank' column
-                clan_csv['rank'] = clan_csv['new_rank']
-                clan_csv.drop(columns=['new_rank'], inplace=True)  # Remove temporary column
+                def main():
+                    # Load data directly from the files
+                    members = load_data(JSON_FILE)
+                    members = calculate_member_stats(members)
+                    clan_csv = pd.read_csv(CSV_FILE)
+                    clan_csv['rsn'] = clan_csv['rsn'].astype(str)
 
-                print("Updated!")
-                return clan_csv
+                    # Update CSV and ranks
+                    clan_csv = update_clan_csv(clan_csv, members)
+                    clan_csv = update_ranks(clan_csv)
 
-            def main():
-                # Load data directly from the files
-                members = load_data(JSON_FILE)
-                members = calculate_member_stats(members)
-                clan_csv = pd.read_csv(CSV_FILE)
-                clan_csv['rsn'] = clan_csv['rsn'].astype(str)
+                    # Save updated CSV
+                    clan_csv.to_csv(CSV_FILE, index=False)
 
-                # Update CSV and ranks
-                clan_csv = update_clan_csv(clan_csv, members)
-                clan_csv = update_ranks(clan_csv)
+                if __name__ == "__main__":
+                    main()
+                await message.channel.send(f"Clan has been updated!")
+            else:
+                await message.channel.send("You do not have permission to use this command.")
+                # Clan Updater End
 
-                # Save updated CSV
-                clan_csv.to_csv(CSV_FILE, index=False)
-
-            if __name__ == "__main__":
-                main()
-            await message.channel.send(f"Clan has been updated!")
-            #Clan Updater End
-
-        #Export Clan CSV to Discord Start
+        # Export Clan CSV to Discord Start
         if content_lower.startswith('!export') and not message.author.bot:
-            try:
-                file = discord.File(DATA_DIR / "fools_union_member_data.csv")
-                await message.channel.send("Here is the file you requested:", file=file)
-            except Exception as e:
-                await message.channel.send(f"Failed to send file: {e}")
-                    #Expoert Clan CSV to Discord end
+            # Check if the user has the admin role
+            if any(role.id == admin_role_id for role in message.author.roles):
+                try:
+                    file = discord.File(DATA_DIR / "fools_union_member_data.csv")
+                    await message.channel.send("Here is the file you requested:", file=file)
+                except Exception as e:
+                    await message.channel.send(f"Failed to send file: {e}")
+            else:
+                await message.channel.send("You do not have permission to use this command.")
+        # Export Clan CSV to Discord end
 
         #Add Joker Points Start
         if content_lower.startswith('!jpadd') and not message.author.bot:
-            csv_file = DATA_DIR / "fools_union_member_data.csv"
-            df = pd.read_csv(csv_file)
-            try:
-                # Parse the command and extract the RSN name
-                rsn = content_lower[len('!jpadd '):].strip()
+            # Check if the user has the admin role
+            if any(role.id == admin_role_id for role in message.author.roles):
+                csv_file = DATA_DIR / "fools_union_member_data.csv"
+                df = pd.read_csv(csv_file)
+                try:
+                    # Parse the command and extract the RSN name
+                    rsn = content_lower[len('!jpadd '):].strip()
 
-                # Convert RSN in DataFrame to lowercase for comparison
-                df['rsn_lower'] = df['rsn'].str.lower()
+                    # Convert RSN in DataFrame to lowercase for comparison
+                    df['rsn_lower'] = df['rsn'].str.lower()
 
-                if rsn in df['rsn_lower'].values:
-                    index = df.index[df['rsn_lower'] == rsn].tolist()[0]
+                    if rsn in df['rsn_lower'].values:
+                        index = df.index[df['rsn_lower'] == rsn].tolist()[0]
 
-                    # Add 5 points to "Other Points"
-                    df.at[index, 'Other Points'] += 5
+                        # Add 5 points to "Other Points"
+                        df.at[index, 'Other Points'] += 5
 
-                    # Calculate total points (Points From Time in Clan + Other Points)
-                    df.at[index, 'Total Points'] = df.at[index, 'Points From Time in Clan'] + df.at[index, 'Other Points']
+                        # Calculate total points (Points From Time in Clan + Other Points)
+                        df.at[index, 'Total Points'] = df.at[index, 'Points From Time in Clan'] + df.at[
+                            index, 'Other Points']
 
-                    # Save the DataFrame back to the CSV
-                    df.to_csv(csv_file, index=False)
+                        # Save the DataFrame back to the CSV
+                        df.to_csv(csv_file, index=False)
 
-                    await message.channel.send(f"Added 5 points to '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}")
-                else:
-                    await message.channel.send(f"RSN '{rsn}' not found in the clan list.")
-            except Exception as e:
-                await message.channel.send(f"An error occurred: {str(e)}")
+                        await message.channel.send(
+                            f"Added 5 points to '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}")
+                    else:
+                        await message.channel.send(f"RSN '{rsn}' not found in the clan list.")
+                except Exception as e:
+                    await message.channel.send(f"An error occurred: {str(e)}")
+            else:
+                await message.channel.send("You do not have permission to use this command.")
 
                 #Add Joker Points End
 
         if message.content.startswith('!reactrole') and message.author != bot.user:
-            try:
-                parts = message.content.split()
+            # Check if the user has the admin role
+            if any(role.id == admin_role_id for role in message.author.roles):
+                try:
+                    parts = message.content.split()
 
-                # Check for the --remove and --remove-message flags
-                remove_from_list = "--remove" in parts
-                remove_entire_message = "--remove-message" in parts
+                    # Check for the --remove and --remove-message flags
+                    remove_from_list = "--remove" in parts
+                    remove_entire_message = "--remove-message" in parts
 
-                if remove_from_list:
-                    # If --remove is present, we expect only 3 arguments
-                    if len(parts) != 4:
-                        raise ValueError("Invalid command format for removing a reaction.")
+                    if remove_from_list:
+                        # If --remove is present, we expect only 3 arguments
+                        if len(parts) != 4:
+                            raise ValueError("Invalid command format for removing a reaction.")
 
-                    message_id = int(parts[1])
-                    emoji = parts[2]
+                        message_id = int(parts[1])
+                        emoji = parts[2]
 
-                    # Fetch the target message
-                    target_message = await message.channel.fetch_message(message_id)
+                        # Fetch the target message
+                        target_message = await message.channel.fetch_message(message_id)
 
-                    # Remove the reaction and its mapping
-                    if str(message_id) in reaction_role_mapping:
-                        if emoji in reaction_role_mapping[str(message_id)]["mappings"]:
-                            del reaction_role_mapping[str(message_id)]["mappings"][emoji]
-                            save_data(reaction_role_mapping)
+                        # Remove the reaction and its mapping
+                        if str(message_id) in reaction_role_mapping:
+                            if emoji in reaction_role_mapping[str(message_id)]["mappings"]:
+                                del reaction_role_mapping[str(message_id)]["mappings"][emoji]
+                                save_data(reaction_role_mapping)
 
-                            # Remove the reaction from the message
-                            await target_message.remove_reaction(emoji, bot.user)
+                                # Remove the reaction from the message
+                                await target_message.remove_reaction(emoji, bot.user)
 
-                            await message.channel.send(
-                                f"Successfully removed the reaction {emoji} and its mapping from message {message_id}.")
+                                await message.channel.send(
+                                    f"Successfully removed the reaction {emoji} and its mapping from message {message_id}.")
+                            else:
+                                await message.channel.send(
+                                    f"The reaction {emoji} is not mapped to any roles for message {message_id}.")
                         else:
+                            await message.channel.send(f"No reaction roles are set up for message {message_id}.")
+
+                    elif remove_entire_message:
+                        # If --remove-message is present, we expect only 2 arguments
+                        if len(parts) != 3:
+                            raise ValueError("Invalid command format for removing a message.")
+
+                        message_id = int(parts[1])
+
+                        # Remove the entire message and its mappings
+                        if str(message_id) in reaction_role_mapping:
+                            del reaction_role_mapping[str(message_id)]
+                            save_data(reaction_role_mapping)
                             await message.channel.send(
-                                f"The reaction {emoji} is not mapped to any roles for message {message_id}.")
+                                f"Successfully removed message {message_id} and all its reaction role mappings.")
+                        else:
+                            await message.channel.send(f"No reaction roles are set up for message {message_id}.")
+
                     else:
-                        await message.channel.send(f"No reaction roles are set up for message {message_id}.")
+                        # If neither flag is present, handle it as before (adding/updating a reaction)
+                        if len(parts) < 4 or len(parts) > 6:
+                            raise ValueError("Invalid command format.")
 
-                elif remove_entire_message:
-                    # If --remove-message is present, we expect only 2 arguments
-                    if len(parts) != 3:
-                        raise ValueError("Invalid command format for removing a message.")
+                        message_id = int(parts[1])
+                        emoji = parts[2]
+                        role_to_add_mention = parts[3]
 
-                    message_id = int(parts[1])
+                        role_to_remove_mention = None
+                        if len(parts) >= 5 and parts[4].startswith("<@&"):
+                            role_to_remove_mention = parts[4]
 
-                    # Remove the entire message and its mappings
-                    if str(message_id) in reaction_role_mapping:
-                        del reaction_role_mapping[str(message_id)]
-                        save_data(reaction_role_mapping)
-                        await message.channel.send(
-                            f"Successfully removed message {message_id} and all its reaction role mappings.")
-                    else:
-                        await message.channel.send(f"No reaction roles are set up for message {message_id}.")
+                        remove_reaction = "--remove-reaction" in parts
 
-                else:
-                    # If neither flag is present, handle it as before (adding/updating a reaction)
-                    if len(parts) < 4 or len(parts) > 6:
-                        raise ValueError("Invalid command format.")
+                        role_to_add_id = int(role_to_add_mention[3:-1])
+                        role_to_add = message.guild.get_role(role_to_add_id)
 
-                    message_id = int(parts[1])
-                    emoji = parts[2]
-                    role_to_add_mention = parts[3]
+                        role_to_remove_id = None
+                        if role_to_remove_mention:
+                            role_to_remove_id = int(role_to_remove_mention[3:-1])
+                            role_to_remove = message.guild.get_role(role_to_remove_id)
 
-                    role_to_remove_mention = None
-                    if len(parts) >= 5 and parts[4].startswith("<@&"):
-                        role_to_remove_mention = parts[4]
+                        target_message = await message.channel.fetch_message(message_id)
 
-                    remove_reaction = "--remove-reaction" in parts
+                        # Add the reaction to the target message
+                        await target_message.add_reaction(emoji)
 
-                    role_to_add_id = int(role_to_add_mention[3:-1])
-                    role_to_add = message.guild.get_role(role_to_add_id)
+                        # If the message ID is not in the mapping, create a new entry
+                        if str(message_id) not in reaction_role_mapping:
+                            reaction_role_mapping[str(message_id)] = {
+                                "mappings": {},
+                                "guild_id": message.guild.id,
+                                "channel_id": message.channel.id,
+                                "remove_reaction": remove_reaction  # Store the flag
+                            }
 
-                    role_to_remove_id = None
-                    if role_to_remove_mention:
-                        role_to_remove_id = int(role_to_remove_mention[3:-1])
-                        role_to_remove = message.guild.get_role(role_to_remove_id)
-
-                    target_message = await message.channel.fetch_message(message_id)
-
-                    # Add the reaction to the target message
-                    await target_message.add_reaction(emoji)
-
-                    # If the message ID is not in the mapping, create a new entry
-                    if str(message_id) not in reaction_role_mapping:
-                        reaction_role_mapping[str(message_id)] = {
-                            "mappings": {},
-                            "guild_id": message.guild.id,
-                            "channel_id": message.channel.id,
-                            "remove_reaction": remove_reaction  # Store the flag
+                        # Add or update the mapping for this emoji and roles
+                        reaction_role_mapping[str(message_id)]["mappings"][emoji] = {
+                            "add": role_to_add.id,
+                            "remove": role_to_remove_id  # Can be None
                         }
 
-                    # Add or update the mapping for this emoji and roles
-                    reaction_role_mapping[str(message_id)]["mappings"][emoji] = {
-                        "add": role_to_add.id,
-                        "remove": role_to_remove_id  # Can be None
-                    }
+                        save_data(reaction_role_mapping)
 
-                    save_data(reaction_role_mapping)
+                        success_message = f"Successfully added {emoji} to message {message_id} and mapped it to add role {role_to_add.name}."
+                        if role_to_remove:
+                            success_message += f" Also mapped it to remove role {role_to_remove.name}."
+                        if remove_reaction:
+                            success_message += " The reaction will be removed after adding/removing roles."
+                        await message.channel.send(success_message)
 
-                    success_message = f"Successfully added {emoji} to message {message_id} and mapped it to add role {role_to_add.name}."
-                    if role_to_remove:
-                        success_message += f" Also mapped it to remove role {role_to_remove.name}."
-                    if remove_reaction:
-                        success_message += " The reaction will be removed after adding/removing roles."
-                    await message.channel.send(success_message)
+                except ValueError as e:
+                    # Update the error message to include the new flag
+                    await message.channel.send(
+                        f"Invalid command format. Use one of the following:\n"
+                        f"`!reactrole <message_id> <emoji> <@role_to_add> [<@role_to_remove>] [--remove-reaction]`\n"
+                        f"`!reactrole <message_id> <emoji> --remove`\n"
+                        f"`!reactrole <message_id> --remove-message`\n"
+                        f"Error: {e}")
+                except discord.NotFound:
+                    await message.channel.send("Message or role not found!")
+                except discord.HTTPException as e:
+                    await message.channel.send(f"An error occurred: {e}")
+            else:
+                await message.channel.send("You do not have permission to use this command.")
 
-            except ValueError as e:
-                # Update the error message to include the new flag
-                await message.channel.send(
-                    f"Invalid command format. Use one of the following:\n"
-                    f"`!reactrole <message_id> <emoji> <@role_to_add> [<@role_to_remove>] [--remove-reaction]`\n"
-                    f"`!reactrole <message_id> <emoji> --remove`\n"
-                    f"`!reactrole <message_id> --remove-message`\n"
-                    f"Error: {e}")
-            except discord.NotFound:
-                await message.channel.send("Message or role not found!")
-            except discord.HTTPException as e:
-                await message.channel.send(f"An error occurred: {e}")
+        if content_lower.startswith('!adminhelp') and not message.author.bot:
+            commands = {
+                "!rsn <rsn>": "Link your Discord ID to your RuneScape name.",
+                "!points <rsn>": "Check the points of a RuneScape name.",
+                "ADMIN: !otwselect": "Select the Boss of the Week and Skill of the Week.",
+                "ADMIN: !importjson <json_data>": "Import clan member data from JSON.",
+                "ADMIN: !updateclan": "Update the clan member data csv.",
+                "ADMIN: !export": "Export the clan member data CSV to the chat.",
+                "ADMIN: !jpadd <rsn>": "Add Joker Points to a RuneScape name.",
+                "ADMIN: !reactrole <message_id> <emoji> <@role_to_add> [<@role_to_remove>] [--remove-reaction]": "Manage reaction roles.",
+                "ADMIN: !reactrole <message_id> <emoji> --remove": "Remove a reaction role.",
+                "ADMIN: !reactrole <message_id> --remove-message": "Remove all reaction roles from a message."
+            }
+
+            embed = discord.Embed(title="Bot Commands", color=discord.Color.blue())
+            for command, description in commands.items():
+                embed.add_field(name=command, value=description, inline=False)
+
+            await message.channel.send(embed=embed)
 
     # Reaction events
     async def handle_reaction(payload, add_or_remove):
@@ -735,7 +783,4 @@ async def on_ready():
                     save_channels_to_json()
 
     #End MakeAVC
-
-
-
 bot.run(bot_token)
