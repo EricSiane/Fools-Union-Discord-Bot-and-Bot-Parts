@@ -3,6 +3,7 @@ import discord
 import pathlib
 import os
 import random
+import re
 import json
 import pandas as pd
 from datetime import datetime
@@ -38,7 +39,10 @@ welcome_channel = os.getenv("WELCOME_MESSAGE_CHANNEL")
 welcome_message = os.getenv("WELCOME_MESSAGE_ID")
 admin_role_id = int(os.getenv("ADMIN_ROLE_ID"))
 
-# Initialize reaction_role_mapping
+
+COMMANDS_FILE = DATA_DIR / "custom_commands.json"
+
+custom_commands = {}
 reaction_role_mapping = {}
 #Bot Init End
 
@@ -91,8 +95,24 @@ def load_data():
     except FileNotFoundError:
         reaction_role_mapping = {}
 
+def load_custom_commands():
+    global custom_commands
+    try:
+        with open(DATA_DIR / 'custom_commands.json', 'r') as f:
+            content = f.read().strip()
+            if content:
+                custom_commands = json.loads(content)
+            else:
+                custom_commands = {}
+    except FileNotFoundError:
+        custom_commands = {}
+
+def save_custom_commands():
+    with open(DATA_DIR / 'custom_commands.json', 'w') as f:
+        json.dump(custom_commands, f, indent=4)
 # Load data on startup
 load_data()
+load_custom_commands()
 
 async def assign_or_remove_roles_for_existing_reactions():
     # Assign or remove roles for users who reacted or unreacted while the bot was offline.
@@ -621,6 +641,68 @@ async def on_ready():
                     await message.channel.send(f"An error occurred: {e}")
             else:
                 await message.channel.send("You do not have permission to use this command.")
+# End of Reaction Role Management
+        if content_lower.startswith('!addcommand') and any(role.id == admin_role_id for role in message.author.roles):
+            try:
+                parts = message.content.split(' ', 2)
+                if len(parts) < 3:
+                    await message.channel.send("Usage: !addcommand <command_name> <response>")
+                    return
+
+                command_name = parts[1].lower()
+                response = parts[2]
+
+                custom_commands[command_name] = response
+                save_custom_commands()
+                await message.channel.send(f"Custom command '{command_name}' added successfully.")
+            except Exception as e:
+                await message.channel.send(f"An error occurred: {e}")
+
+        # Remove custom command
+        elif content_lower.startswith('!removecommand') and any(
+                role.id == admin_role_id for role in message.author.roles):
+            try:
+                parts = message.content.split(' ', 1)
+                if len(parts) < 2:
+                    await message.channel.send("Usage: !removecommand <command_name>")
+                    return
+
+                command_name = parts[1].lower()
+
+                if command_name in custom_commands:
+                    del custom_commands[command_name]
+                    save_custom_commands()
+                    await message.channel.send(f"Custom command '{command_name}' removed successfully.")
+                else:
+                    await message.channel.send(f"Custom command '{command_name}' not found.")
+            except Exception as e:
+                await message.channel.send(f"An error occurred: {e}")
+
+        if content_lower.startswith('!editcommand') and any(role.id == admin_role_id for role in message.author.roles):
+            try:
+                parts = message.content.split(' ', 2)
+                if len(parts) < 3:
+                    await message.channel.send("Usage: !editcommand <command_name> <new_response>")
+                    return
+
+                command_name = parts[1].lower()
+                new_response = parts[2]
+
+                if command_name in custom_commands:
+                    custom_commands[command_name] = new_response
+                    save_custom_commands()
+                    await message.channel.send(f"Custom command '{command_name}' edited successfully.")
+                else:
+                    await message.channel.send(f"Custom command '{command_name}' not found.")
+            except Exception as e:
+                await message.channel.send(f"An error occurred: {e}")
+
+        # Handle custom commands
+        else:
+            for command, response in custom_commands.items():
+                if re.search(r'\b' + re.escape(command) + r'\b', content_lower) and not message.author.bot:
+                    await message.channel.send(response)
+                    break
 
         if content_lower.startswith('!adminhelp') and not message.author.bot:
             commands = {
@@ -633,7 +715,10 @@ async def on_ready():
                 "ADMIN: !jpadd <rsn>": "Add Joker Points to a RuneScape name.",
                 "ADMIN: !reactrole <message_id> <emoji> <@role_to_add> [<@role_to_remove>] [--remove-reaction]": "Manage reaction roles.",
                 "ADMIN: !reactrole <message_id> <emoji> --remove": "Remove a reaction role.",
-                "ADMIN: !reactrole <message_id> --remove-message": "Remove all reaction roles from a message."
+                "ADMIN: !reactrole <message_id> --remove-message": "Remove all reaction roles from a message.",
+                "ADMIN: !addcommand <command_name> <response>": "Add a custom command.",
+                "ADMIN: !editcommand <command_name> <new_response>": "Edit a custom command.",
+                "ADMIN: !removecommand <command_name>": "Remove a custom command."
             }
 
             embed = discord.Embed(title="Bot Commands", color=discord.Color.blue())
