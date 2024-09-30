@@ -973,4 +973,5 @@ async def on_ready():
                     save_channels_to_json()
 
     #End MakeAVC
+    #needed a test commit
 bot.run(bot_token)
