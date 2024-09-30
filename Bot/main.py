@@ -989,6 +989,5 @@ async def on_voice_state_update(member, before, after):
             if creator_id:  # Only delete from the dictionary if we found the creator
                 del created_channels[creator_id]
                 save_channels_to_json()
-# End MakeAVC
-    #needed a test commit2
+    # End MakeAVC
 bot.run(bot_token)
