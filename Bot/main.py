@@ -10,7 +10,6 @@ from datetime import datetime
 from collections import deque
 from dotenv import load_dotenv
 
-
 DATA_DIR = pathlib.Path("data")
 
 # Lists needed for BOTW & SOTW
@@ -186,6 +185,7 @@ async def assign_or_remove_roles_for_existing_reactions():
 async def on_ready():
     print(f'Bot is ready. Logged in as {bot.user}')
     await assign_or_remove_roles_for_existing_reactions()
+    await check_and_delete_empty_channels()
     channel = bot.get_channel(int(welcome_channel))
     if channel:
         specific_message_id = int(welcome_message)  # Assuming welcome_message contains the message ID
@@ -888,90 +888,107 @@ async def on_ready():
         await handle_reaction(payload, "remove")
 
     #Start MakeAVC
-    TARGET_VOICE_CHANNEL_ID = int(vc_id)
+TARGET_VOICE_CHANNEL_ID = int(vc_id)
 
     # Dictionary to store created channels for each user
-    created_channels = {}
+created_channels = {}
 
     # Path to store JSON data
-    json_file_path = DATA_DIR / "created_channels.json"
+json_file_path = DATA_DIR / "created_channels.json"
 
 
-    # Function to load created channels from JSON
-    def load_channels_from_json():
-        global created_channels
-        if os.path.exists(json_file_path):
+# Function to load created channels from JSON
+def load_channels_from_json():
+    global created_channels
+    if os.path.exists(json_file_path):
+        try:
             with open(json_file_path, "r") as f:
                 created_channels = json.load(f)
+                print(f"Loaded created channels: {created_channels}")
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+        except Exception as e:
+            print(f"Error loading JSON file: {e}")
+    else:
+        print(f"JSON file does not exist: {json_file_path}")
 
-
-    # Function to save created channels to JSON
-    def save_channels_to_json():
+def save_channels_to_json():
+    try:
         with open(json_file_path, "w") as f:
             json.dump(created_channels, f)
+            print(f"Saved created channels: {created_channels}")
+    except Exception as e:
+        print(f"Error saving JSON file: {e}")
 
+# Load the created channels from the JSON file when the bot starts
+load_channels_from_json()
 
-    # Load the created channels from the JSON file when the bot starts
-    load_channels_from_json()
-
-    # Check if the channels still exist and delete the ones that don't
-    guild = discord.utils.get(bot.guilds, id=int(vc_id))
-    if guild:
+# Check if the channels still exist and delete the ones that are empty
+async def check_and_delete_empty_channels():
+    for guild in bot.guilds:
         for user_id, channel_id in list(created_channels.items()):
             channel = guild.get_channel(channel_id)
-            if not channel:  # If the channel doesn't exist, remove it from the dictionary
+            if channel and len(channel.members) == 0:
+                await channel.delete()
                 del created_channels[user_id]
-        save_channels_to_json()
+    save_channels_to_json()
 
+@bot.event
+async def on_voice_state_update(member, before, after):
+    if after.channel and after.channel.id == TARGET_VOICE_CHANNEL_ID:
+        # User joined the target voice channel
 
-    @bot.event
-    async def on_voice_state_update(member, before, after):
-        if after.channel and after.channel.id == TARGET_VOICE_CHANNEL_ID:
-            # User joined the target voice channel
+        # Check if the user already has a created channel
+        if member.id in created_channels:
+            existing_channel_id = created_channels[member.id]
+            existing_channel = member.guild.get_channel(existing_channel_id)
+            if existing_channel:
+                await member.move_to(existing_channel)
+                print(f"Moved {member.name} to their existing channel: {existing_channel.name}")
+                return
 
-            # Get the user's nickname or username
-            channel_name = member.nick if member.nick else member.name
+        # Get the user's nickname or username
+        channel_name = member.nick if member.nick else member.name
 
-            # Check if the user is currently playing a game
-            game_name = ""
-            if member.activity and member.activity.type == discord.ActivityType.playing:
-                game_name = f" - {member.activity.name}"
+        # Check if the user is currently playing a game
+        game_name = ""
+        if member.activity and member.activity.type == discord.ActivityType.playing:
+            game_name = f" - {member.activity.name}"
 
-            # Create an overwrite for the member with full permissions
-            overwrites = {
-                member: discord.PermissionOverwrite(
-                    manage_channels=True,
-                    manage_permissions=True,
-                    view_channel=True,
-                    connect=True,
-                    speak=True,
-                    mute_members=True,
-                    deafen_members=True,
-                    move_members=True,
-                )
-            }
-
-            new_channel = await after.channel.guild.create_voice_channel(
-                name=f"{channel_name}'s VC{game_name}",  # Include game_name if available
-                category=after.channel.category,
-                overwrites=overwrites
+        # Create an overwrite for the member with full permissions
+        overwrites = {
+            member: discord.PermissionOverwrite(
+                manage_channels=True,
+                manage_permissions=True,
+                view_channel=True,
+                connect=True,
+                speak=True,
+                mute_members=True,
+                deafen_members=True,
+                move_members=True,
             )
-            await member.move_to(new_channel)
-            created_channels[member.id] = new_channel.id  # Save the channel ID instead of the object
-            save_channels_to_json()
-            print(f"Created channel for {member.name}: {new_channel.name}")
+        }
 
-        elif before.channel:  # User left a voice channel
-            if len(before.channel.members) == 0 and before.channel.id in created_channels.values():
-                print(f"Deleting channel: {before.channel.name}")
-                # Find the ID of the user who created this channel
-                creator_id = next(
-                    (user_id for user_id, channel_id in created_channels.items() if channel_id == before.channel.id), None)
-                await before.channel.delete()
-                if creator_id:  # Only delete from the dictionary if we found the creator
-                    del created_channels[creator_id]
-                    save_channels_to_json()
+        new_channel = await after.channel.guild.create_voice_channel(
+            name=f"{channel_name}'s VC{game_name}",  # Include game_name if available
+            category=after.channel.category,
+            overwrites=overwrites
+        )
+        await member.move_to(new_channel)
+        created_channels[member.id] = new_channel.id  # Save the channel ID instead of the object
+        save_channels_to_json()
+        print(f"Created channel for {member.name}: {new_channel.name}")
 
-    #End MakeAVC
+    elif before.channel:  # User left a voice channel
+        if len(before.channel.members) == 0 and before.channel.id in created_channels.values():
+            print(f"Deleting channel: {before.channel.name}")
+            # Find the ID of the user who created this channel
+            creator_id = next(
+                (user_id for user_id, channel_id in created_channels.items() if channel_id == before.channel.id), None)
+            await before.channel.delete()
+            if creator_id:  # Only delete from the dictionary if we found the creator
+                del created_channels[creator_id]
+                save_channels_to_json()
+# End MakeAVC
     #needed a test commit2
 bot.run(bot_token)
