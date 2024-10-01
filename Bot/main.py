@@ -10,6 +10,7 @@ from datetime import datetime
 from collections import deque
 from dotenv import load_dotenv
 
+
 DATA_DIR = pathlib.Path("data")
 
 # Lists needed for BOTW & SOTW
@@ -643,11 +644,10 @@ async def on_ready():
                                 # Remove the reaction from the message
                                 await target_message.remove_reaction(emoji, bot.user)
 
-                                await message.channel.send(
-                                    f"Successfully removed the reaction {emoji} and its mapping from message {message_id}.")
+                                await message.channel.send(f"Successfully removed {emoji} from message {message_id}.")
                             else:
                                 await message.channel.send(
-                                    f"The reaction {emoji} is not mapped to any roles for message {message_id}.")
+                                    f"No reaction role mapping found for {emoji} on message {message_id}.")
                         else:
                             await message.channel.send(f"No reaction roles are set up for message {message_id}.")
 
@@ -669,7 +669,7 @@ async def on_ready():
 
                     else:
                         # If neither flag is present, handle it as before (adding/updating a reaction)
-                        if len(parts) < 4 or len(parts) > 6:
+                        if len(parts) < 4 or len(parts) > 5:
                             raise ValueError("Invalid command format.")
 
                         message_id = int(parts[1])
@@ -677,15 +677,13 @@ async def on_ready():
                         role_to_add_mention = parts[3]
 
                         role_to_remove_mention = None
-                        if len(parts) >= 5 and parts[4].startswith("<@&"):
+                        role_to_remove = None  # Initialize role_to_remove to None
+                        if len(parts) == 5 and parts[4].startswith("<@&"):
                             role_to_remove_mention = parts[4]
-
-                        remove_reaction = "--remove-reaction" in parts
 
                         role_to_add_id = int(role_to_add_mention[3:-1])
                         role_to_add = message.guild.get_role(role_to_add_id)
 
-                        role_to_remove_id = None
                         if role_to_remove_mention:
                             role_to_remove_id = int(role_to_remove_mention[3:-1])
                             role_to_remove = message.guild.get_role(role_to_remove_id)
@@ -700,8 +698,7 @@ async def on_ready():
                             reaction_role_mapping[str(message_id)] = {
                                 "mappings": {},
                                 "guild_id": message.guild.id,
-                                "channel_id": message.channel.id,
-                                "remove_reaction": remove_reaction  # Store the flag
+                                "channel_id": message.channel.id
                             }
 
                         # Add or update the mapping for this emoji and roles
@@ -715,15 +712,13 @@ async def on_ready():
                         success_message = f"Successfully added {emoji} to message {message_id} and mapped it to add role {role_to_add.name}."
                         if role_to_remove:
                             success_message += f" Also mapped it to remove role {role_to_remove.name}."
-                        if remove_reaction:
-                            success_message += " The reaction will be removed after adding/removing roles."
                         await message.channel.send(success_message)
 
                 except ValueError as e:
                     # Update the error message to include the new flag
                     await message.channel.send(
                         f"Invalid command format. Use one of the following:\n"
-                        f"`!reactrole <message_id> <emoji> <@role_to_add> [<@role_to_remove>] [--remove-reaction]`\n"
+                        f"`!reactrole <message_id> <emoji> <@role_to_add> [<@role_to_remove>]`\n"
                         f"`!reactrole <message_id> <emoji> --remove`\n"
                         f"`!reactrole <message_id> --remove-message`\n"
                         f"Error: {e}")
@@ -834,50 +829,38 @@ async def on_ready():
 
     # Reaction events
     async def handle_reaction(payload, add_or_remove):
-        message_id = str(payload.message_id)
-        if message_id in reaction_role_mapping:
-            mappings = reaction_role_mapping[message_id]["mappings"]
-            remove_reaction = reaction_role_mapping[message_id]["remove_reaction"]
+        guild = bot.get_guild(payload.guild_id)
+        if not guild:
+            print(f"Guild {payload.guild_id} not found.")
+            return
 
-            # Check if the reacted emoji is in the mappings
-            if str(payload.emoji) in mappings:
-                guild = bot.get_guild(payload.guild_id)
-                role_data = mappings[str(payload.emoji)]
-                member = guild.get_member(payload.user_id) or await guild.fetch_member(payload.user_id)
+        reactions = reaction_role_mapping.get(str(payload.message_id))
+        if not reactions:
+            return
 
-                if member:
-                    try:
-                        if add_or_remove == "add":
-                            role_to_add = guild.get_role(role_data["add"])
-                            await member.add_roles(role_to_add)
+        for emoji, role_data in reactions["mappings"].items():
+            if str(payload.emoji) == emoji:
+                role_to_add = guild.get_role(role_data["add"])
+                role_to_remove = guild.get_role(role_data["remove"]) if role_data["remove"] else None
 
-                            # Initialize role_to_remove to None
-                            role_to_remove = None
+                member = guild.get_member(payload.user_id)
+                if not member:
+                    print(f"Member {payload.user_id} not found.")
+                    return
 
-                            # Handle optional role removal
-                            if role_data["remove"]:
-                                role_to_remove = guild.get_role(role_data["remove"])
-                                await member.remove_roles(role_to_remove)
-                                print(
-                                    f"Added role {role_to_add.name} and removed role {role_to_remove.name} to {member.name}")
-                            else:
-                                print(f"Added role {role_to_add.name} to {member.name}")
-
-                            if remove_reaction:
-                                # Remove the user's reaction
-                                channel = guild.get_channel(payload.channel_id)
-                                message = await channel.fetch_message(payload.message_id)
-                                await message.remove_reaction(payload.emoji,
-                                                              member)
-
-                        elif add_or_remove == "remove":
-                            # We don't do anything on reaction remove in this case
-                            pass
-
-                    except discord.Forbidden:
-                        print(f"Bot doesn't have permission to manage roles for {member.name}")
-                    except discord.HTTPException as e:
-                        print(f"Failed to manage roles due to an error: {e}")
+                try:
+                    if add_or_remove == "add":
+                        await member.add_roles(role_to_add)
+                        if role_to_remove:
+                            await member.remove_roles(role_to_remove)
+                        print(f"Added role {role_to_add.name} to {member.name}")
+                    elif add_or_remove == "remove":
+                        await member.remove_roles(role_to_add)
+                        print(f"Removed role {role_to_add.name} from {member.name}")
+                except discord.Forbidden:
+                    print(f"Bot doesn't have permission to manage roles for {member.name}")
+                except discord.HTTPException as e:
+                    print(f"Failed to manage roles due to an error: {e}")
 
     @bot.event
     async def on_raw_reaction_add(payload):
