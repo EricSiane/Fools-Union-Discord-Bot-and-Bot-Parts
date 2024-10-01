@@ -640,14 +640,11 @@ async def on_ready():
                             if emoji in reaction_role_mapping[str(message_id)]["mappings"]:
                                 del reaction_role_mapping[str(message_id)]["mappings"][emoji]
                                 save_data(reaction_role_mapping)
-
-                                # Remove the reaction from the message
-                                await target_message.remove_reaction(emoji, bot.user)
-
-                                await message.channel.send(f"Successfully removed {emoji} from message {message_id}.")
+                                await message.channel.send(
+                                    f"Successfully removed reaction {emoji} from message {message_id}.")
                             else:
                                 await message.channel.send(
-                                    f"No reaction role mapping found for {emoji} on message {message_id}.")
+                                    f"No reaction role mapping found for emoji {emoji} on message {message_id}.")
                         else:
                             await message.channel.send(f"No reaction roles are set up for message {message_id}.")
 
@@ -678,6 +675,7 @@ async def on_ready():
 
                         role_to_remove_mention = None
                         role_to_remove = None  # Initialize role_to_remove to None
+                        role_to_remove_id = None  # Initialize role_to_remove_id to None
                         if len(parts) == 5 and parts[4].startswith("<@&"):
                             role_to_remove_mention = parts[4]
 
