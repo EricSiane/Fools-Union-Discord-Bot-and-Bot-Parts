@@ -472,15 +472,16 @@ async def on_ready():
                     def get_new_rank(total_points):
                         """Determines the new rank based on total points."""
                         rank_thresholds = [
-                            (10, "Bronze Bar"),
-                            (30, "Iron Bar"),
-                            (50, "Steel Bar"),
-                            (75, "Gold Bar"),
-                            (100, "Mithril Bar"),
-                            (125, "Adamant Bar"),
-                            (150, "Rune Bar"),
-                            (200, "Dragon Bar"),
-                            (250, "Onyx"),
+                            (0, "Bronze Bar"),
+                            (10, "Iron Bar"),
+                            (30, "Steel Bar"),
+                            (50, "Gold Bar"),
+                            (75, "Mithril Bar"),
+                            (100, "Adamant Bar"),
+                            (125, "Rune Bar"),
+                            (150, "Dragon Bar"),
+                            (200, "Onyx"),
+                            (250, "Zenyte")
                         ]
                         for threshold, rank in rank_thresholds:
                             if total_points < threshold:
@@ -529,7 +530,7 @@ async def on_ready():
                 await message.channel.send(f"Clan has been updated!")
             else:
                 await message.channel.send("You do not have permission to use this command.")
-            # Clan Updater End
+        # Clan Updater End
 
         # Export Clan CSV to Discord Start
         if content_lower.startswith('!export') and not message.author.bot:
