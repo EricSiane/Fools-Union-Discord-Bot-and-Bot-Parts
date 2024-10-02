@@ -227,7 +227,7 @@ async def on_ready():
             rsn = content_lower[len('!rsn '):]
 
             csv_file = DATA_DIR / "fools_union_member_data.csv"
-            df = pd.read_csv(csv_file)
+            df = pd.read_csv(csv_file, dtype={'Discord': str})
             rank_thresholds = [
                 (0, "Bronze Bar"),
                 (10, "Iron Bar"),
@@ -241,7 +241,7 @@ async def on_ready():
                 (250, "Zenyte")
             ]
 
-            df['Discord'] = df['Discord'].fillna(0).astype(int)
+            df['Discord'] = df['Discord'].astype(str)
             df['rsn_lower'] = df['rsn'].str.lower()
             fools = discord.utils.get(guild.roles, name="Fools")
             iron = discord.utils.get(guild.roles, name="Iron Bar")
@@ -305,7 +305,7 @@ async def on_ready():
             rsn = content_lower[len('!points '):].strip().lower()
 
             csv_file = DATA_DIR / "fools_union_member_data.csv"
-            df = pd.read_csv(csv_file)
+            df = pd.read_csv(csv_file, dtype={'Discord': str})
 
             df['rsn_lower'] = df['rsn'].str.lower()
 
@@ -551,7 +551,7 @@ async def on_ready():
             # Check if the user has the admin role
             if any(role.id == admin_role_id for role in message.author.roles):
                 csv_file = DATA_DIR / "fools_union_member_data.csv"
-                df = pd.read_csv(csv_file)
+                df = pd.read_csv(csv_file, dtype={'Discord': str})
                 try:
                     # Parse the command and extract the RSN name
                     rsn = content_lower[len('!jpadd '):].strip()
@@ -803,7 +803,7 @@ async def on_ready():
 
         if content_lower.startswith('!memberlist') and not message.author.bot:
             csv_file = DATA_DIR / "fools_union_member_data.csv"
-            df = pd.read_csv(csv_file)
+            df = pd.read_csv(csv_file, dtype={'Discord': str})
 
             rank_thresholds = [
                 (0, "Bronze Bar"),
