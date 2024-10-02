@@ -472,17 +472,20 @@ async def on_ready():
                     def get_new_rank(total_points):
                         """Determines the new rank based on total points."""
                         rank_thresholds = [
-                            (0, "Bronze Bar"),
-                            (10, "Iron Bar"),
-                            (30, "Steel Bar"),
-                            (50, "Gold Bar"),
-                            (75, "Mithril Bar"),
-                            (100, "Adamant Bar"),
-                            (125, "Rune Bar"),
-                            (150, "Dragon Bar"),
-                            (200, "Onyx"),
-                            (250, "Zenyte")
+                            (10, "Bronze Bar"),
+                            (30, "Iron Bar"),
+                            (50, "Steel Bar"),
+                            (75, "Gold Bar"),
+                            (100, "Mithril Bar"),
+                            (125, "Adamant Bar"),
+                            (150, "Rune Bar"),
+                            (200, "Dragon Bar"),
+                            (250, "Onyx"),
                         ]
+                        for threshold, rank in rank_thresholds:
+                            if total_points < threshold:
+                                return rank
+                        return "Zenyte"
 
                     # Calculate total points and update ranks efficiently using pandas apply
                     clan_csv['Total Points'] = clan_csv['Points From Time in Clan'] + clan_csv['Other Points']
