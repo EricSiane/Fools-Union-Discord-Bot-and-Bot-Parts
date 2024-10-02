@@ -510,14 +510,15 @@ async def on_ready():
                     # Load data directly from the files
                     members = load_data(JSON_FILE)
                     members = calculate_member_stats(members)
-                    clan_csv = pd.read_csv(CSV_FILE)
+                    clan_csv = pd.read_csv(CSV_FILE, dtype={'Discord': str})
                     clan_csv['rsn'] = clan_csv['rsn'].astype(str)
 
                     # Update CSV and ranks
                     clan_csv = update_clan_csv(clan_csv, members)
                     clan_csv, rank_changes = await update_ranks(clan_csv)
 
-                    # Save updated CSV
+                    # Ensure the 'Discord' column is treated as a string before saving
+                    clan_csv['Discord'] = clan_csv['Discord'].astype(str)
                     clan_csv.to_csv(CSV_FILE, index=False)
 
                     # Send rank-up messages
@@ -530,7 +531,7 @@ async def on_ready():
                 await message.channel.send(f"Clan has been updated!")
             else:
                 await message.channel.send("You do not have permission to use this command.")
-        # Clan Updater End
+                # Clan Updater End
 
         # Export Clan CSV to Discord Start
         if content_lower.startswith('!export') and not message.author.bot:
