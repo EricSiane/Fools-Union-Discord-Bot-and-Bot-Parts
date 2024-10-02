@@ -241,7 +241,7 @@ async def on_ready():
                 (250, "Zenyte")
             ]
 
-            df['Discord'] = df['Discord'].astype(str)
+            df['Discord'] = df['Discord'].fillna(0).astype(int)
             df['rsn_lower'] = df['rsn'].str.lower()
             fools = discord.utils.get(guild.roles, name="Fools")
             iron = discord.utils.get(guild.roles, name="Iron Bar")
@@ -250,7 +250,7 @@ async def on_ready():
 
             if rsn in df['rsn_lower'].values:
                 index = df.index[df['rsn_lower'] == rsn].tolist()[0]
-                df.at[index, 'Discord'] = str(message.author.id)
+                df.at[index, 'Discord'] = int(message.author.id)
 
                 # Add 10 points if Discord ID is found in the Discord column and points haven't been added yet
                 if str(message.author.id) in df['Discord'].values and df.at[index, 'Total Points'] == df.at[
@@ -312,7 +312,7 @@ async def on_ready():
             if rsn in df['rsn_lower'].values:
                 index = df.index[df['rsn_lower'] == rsn].tolist()[0]
                 discord_value = df.at[index, 'Discord']
-                discord_linked = not pd.isna(discord_value) and discord_value != ''
+                discord_linked = not pd.isna(discord_value) and discord_value != '' and discord_value != 0
                 time_in_clan = df.at[index, 'Days in Clan']
                 other_points = df.at[index, 'Other Points']
                 total_points = df.at[index, 'Total Points']
@@ -744,8 +744,7 @@ async def on_ready():
                 await message.channel.send(f"An error occurred: {e}")
 
         # Remove custom command
-        elif content_lower.startswith('!removecommand') and any(
-                role.id == admin_role_id for role in message.author.roles):
+        elif content_lower.startswith('!removecommand') and any(role.id == admin_role_id for role in message.author.roles):
             try:
                 parts = message.content.split(' ', 1)
                 if len(parts) < 2:
@@ -782,8 +781,7 @@ async def on_ready():
             except Exception as e:
                 await message.channel.send(f"An error occurred: {e}")
 
-        if content_lower.startswith('!customcommands') and any(
-                role.id == admin_role_id for role in message.author.roles):
+        if content_lower.startswith('!customcommands') and any(role.id == admin_role_id for role in message.author.roles):
             try:
                 if custom_commands:
                     embed = discord.Embed(title="Custom Commands", color=discord.Color.blue())
@@ -801,6 +799,46 @@ async def on_ready():
                 if re.search(r'\b' + re.escape(command) + r'\b', content_lower) and not message.author.bot:
                     await message.channel.send(response)
                     break
+
+        if content_lower.startswith('!memberlist') and not message.author.bot:
+            csv_file = DATA_DIR / "fools_union_member_data.csv"
+            df = pd.read_csv(csv_file)
+
+            rank_thresholds = [
+                (0, "Bronze Bar"),
+                (10, "Iron Bar"),
+                (30, "Steel Bar"),
+                (50, "Gold Bar"),
+                (75, "Mithril Bar"),
+                (100, "Adamant Bar"),
+                (125, "Rune Bar"),
+                (150, "Dragon Bar"),
+                (200, "Onyx"),
+                (250, "Zenyte")
+            ]
+
+            user_data = "RSN | Rank | Points Until Next Rank\n"
+            user_data += "----|------|----------------------\n"
+
+            for index, row in df.iterrows():
+                rsn = row['rsn']
+                rank = row['rank']
+                total_points = row['Total Points']
+
+                next_rank = None
+                points_needed = None
+                for threshold, rank_name in rank_thresholds:
+                    if total_points < threshold:
+                        next_rank = rank_name
+                        points_needed = threshold - total_points
+                        break
+
+                if next_rank is None:
+                    points_needed = 0  # Already at the highest rank
+
+                user_data += f"{rsn} | {rank} | {points_needed}\n"
+
+            await message.channel.send(f"```{user_data}```")
 
         if content_lower.startswith('!adminhelp') and not message.author.bot:
             commands = {
