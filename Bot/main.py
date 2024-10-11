@@ -240,6 +240,10 @@ async def on_ready():
                 (200, "Onyx"),
                 (250, "Zenyte")
             ]
+            for threshold, rank in rank_thresholds:
+                if total_points < threshold:
+                    return rank
+            return "Zenyte"
 
             df['Discord'] = df['Discord'].astype(str)
             df['rsn_lower'] = df['rsn'].str.lower()
@@ -329,6 +333,10 @@ async def on_ready():
                     (200, "Onyx"),
                     (250, "Zenyte")
                 ]
+                for threshold, rank in rank_thresholds:
+                    if total_points < threshold:
+                        return rank
+                return "Zenyte"
 
                 # Determine the next rank and points needed
                 next_rank = None
@@ -583,6 +591,10 @@ async def on_ready():
                             (200, "Onyx"),
                             (250, "Zenyte")
                         ]
+                        for threshold, rank in rank_thresholds:
+                            if total_points < threshold:
+                                return rank
+                        return "Zenyte"
 
                         # Determine the new rank based on total points
                         new_rank = None
@@ -818,6 +830,10 @@ async def on_ready():
                 (200, "Onyx"),
                 (250, "Zenyte")
             ]
+            for threshold, rank in rank_thresholds:
+                if total_points < threshold:
+                    return rank
+            return "Zenyte"
 
             user_data = "RSN | Rank | Points Until Next Rank\n"
             user_data += "----|------|----------------------\n"
@@ -908,7 +924,7 @@ async def on_ready():
     async def on_raw_reaction_remove(payload):
         await handle_reaction(payload, "remove")
 
-    #Start MakeAVC
+#Start MakeAVC
 TARGET_VOICE_CHANNEL_ID = int(vc_id)
 
     # Dictionary to store created channels for each user
