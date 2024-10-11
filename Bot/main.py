@@ -491,10 +491,10 @@ async def on_ready():
                             (200, "Onyx"),
                             (250, "Zenyte")
                         ]
-                        for threshold, rank in rank_thresholds:
-                            if total_points < threshold:
+                        for threshold, rank in reversed(rank_thresholds):
+                            if total_points >= threshold:
                                 return rank
-                        return "Zenyte"
+                        return "Bronze Bar"
 
                     # Calculate total points and update ranks efficiently using pandas apply
                     clan_csv['Total Points'] = clan_csv['Points From Time in Clan'] + clan_csv['Other Points']
@@ -539,7 +539,7 @@ async def on_ready():
                 await message.channel.send(f"Clan has been updated!")
             else:
                 await message.channel.send("You do not have permission to use this command.")
-                # Clan Updater End
+            # Clan Updater End
 
         # Export Clan CSV to Discord Start
         if content_lower.startswith('!export') and not message.author.bot:
