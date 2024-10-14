@@ -433,7 +433,6 @@ async def on_ready():
                 # Define the file paths directly here
                 JSON_FILE = DATA_DIR / "clan_member_data.json"
                 csv_file = DATA_DIR / "fools_union_member_data.csv"
-                df = pd.read_csv(csv_file, dtype={'Discord': str})
 
                 def load_data(json_file):
                     """Loads member data from a JSON file."""
@@ -523,12 +522,12 @@ async def on_ready():
                     # Load data directly from the files
                     members = load_data(JSON_FILE)
                     members = calculate_member_stats(members)
-                    clan_csv = pd.read_csv(csv_file, dtype={'Discord': str})
-                    clan_csv['rsn'] = clan_csv['rsn'].astype(str)
+                    df = pd.read_csv(csv_file, dtype={'Discord': str})
+                    df['rsn'] = df['rsn'].astype(str)
 
                     # Update CSV and ranks
-                    clan_csv = update_clan_csv(clan_csv, members)
-                    clan_csv, rank_changes = await update_ranks(clan_csv)
+                    df = update_clan_csv(df, members)
+                    df, rank_changes = await update_ranks(df)
 
                     # Ensure the 'Discord' column is treated as a string before saving
                     df['Discord'] = df['Discord'].astype(str)
@@ -544,7 +543,6 @@ async def on_ready():
                 await message.channel.send(f"Clan has been updated!")
             else:
                 await message.channel.send("You do not have permission to use this command.")
-            # Clan Updater End
 
         # Export Clan CSV to Discord Start
         if content_lower.startswith('!export') and not message.author.bot:
