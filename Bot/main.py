@@ -824,10 +824,6 @@ async def on_ready():
                 (200, "Onyx"),
                 (250, "Zenyte")
             ]
-            for threshold, rank in rank_thresholds:
-                if total_points < threshold:
-                    return rank
-            return "Zenyte"
 
             user_data = "RSN | Rank | Points Until Next Rank\n"
             user_data += "----|------|----------------------\n"
