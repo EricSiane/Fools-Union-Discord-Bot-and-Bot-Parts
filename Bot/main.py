@@ -335,10 +335,11 @@ async def on_ready():
                 ]
 
                 # Determine the current rank
-                current_rank = "Zenyte"
+                current_rank = "Bronze Bar"
                 for threshold, rank in rank_thresholds:
-                    if total_points < threshold:
+                    if total_points >= threshold:
                         current_rank = rank
+                    else:
                         break
 
                 # Determine the next rank and points needed
