@@ -240,10 +240,6 @@ async def on_ready():
                 (200, "Onyx"),
                 (250, "Zenyte")
             ]
-            for threshold, rank in rank_thresholds:
-                if total_points < threshold:
-                    return rank
-            return "Zenyte"
 
             df['Discord'] = df['Discord'].astype(str)
             df['rsn_lower'] = df['rsn'].str.lower()
@@ -277,6 +273,7 @@ async def on_ready():
                     announcement_channel = bot.get_channel(ANNOUNCEMENT_CHANNEL_ID)
                     await announcement_channel.send(f"{df.at[index, 'rsn']} has been promoted to {new_rank}!")
 
+                df['Discord'] = df['Discord'].astype(str)
                 df.to_csv(csv_file, index=False)
 
                 original_rsn = df.at[index, 'rsn']
@@ -304,7 +301,9 @@ async def on_ready():
                     await message.author.edit(nick=rsn)  # Change nickname to the entered RSN
                 except discord.Forbidden:
                     await message.channel.send("I don't have permission to change your nickname.")
-#!Points Command
+
+
+        # !Points Command
         if content_lower.startswith('!points ') and not message.author.bot:
             rsn = content_lower[len('!points '):].strip().lower()
 
@@ -320,6 +319,7 @@ async def on_ready():
                 time_in_clan = df.at[index, 'Days in Clan']
                 other_points = df.at[index, 'Other Points']
                 total_points = df.at[index, 'Total Points']
+
                 # Define rank thresholds
                 rank_thresholds = [
                     (0, "Bronze Bar"),
@@ -333,10 +333,13 @@ async def on_ready():
                     (200, "Onyx"),
                     (250, "Zenyte")
                 ]
+
+                # Determine the current rank
+                current_rank = "Zenyte"
                 for threshold, rank in rank_thresholds:
                     if total_points < threshold:
-                        return rank
-                return "Zenyte"
+                        current_rank = rank
+                        break
 
                 # Determine the next rank and points needed
                 next_rank = None
@@ -353,6 +356,7 @@ async def on_ready():
                     f"Time in Clan: {time_in_clan} days\n"
                     f"Other Points: {other_points}\n"
                     f"Total Points: {total_points}\n"
+                    f"Current Rank: {current_rank}\n"
                     f"Next Rank: {next_rank}\n"
                     f"Points Needed for Next Rank: {points_needed}"
                 )
@@ -428,7 +432,8 @@ async def on_ready():
             if any(role.id == admin_role_id for role in message.author.roles):
                 # Define the file paths directly here
                 JSON_FILE = DATA_DIR / "clan_member_data.json"
-                CSV_FILE = DATA_DIR / "fools_union_member_data.csv"
+                csv_file = DATA_DIR / "fools_union_member_data.csv"
+                df = pd.read_csv(csv_file, dtype={'Discord': str})
 
                 def load_data(json_file):
                     """Loads member data from a JSON file."""
@@ -518,7 +523,7 @@ async def on_ready():
                     # Load data directly from the files
                     members = load_data(JSON_FILE)
                     members = calculate_member_stats(members)
-                    clan_csv = pd.read_csv(CSV_FILE, dtype={'Discord': str})
+                    clan_csv = pd.read_csv(csv_file, dtype={'Discord': str})
                     clan_csv['rsn'] = clan_csv['rsn'].astype(str)
 
                     # Update CSV and ranks
@@ -526,8 +531,8 @@ async def on_ready():
                     clan_csv, rank_changes = await update_ranks(clan_csv)
 
                     # Ensure the 'Discord' column is treated as a string before saving
-                    clan_csv['Discord'] = clan_csv['Discord'].astype(str)
-                    clan_csv.to_csv(CSV_FILE, index=False)
+                    df['Discord'] = df['Discord'].astype(str)
+                    df.to_csv(csv_file, index=False)
 
                     # Send rank-up messages
                     if rank_changes:
@@ -607,6 +612,7 @@ async def on_ready():
                             rank_up_message = None
 
                         # Save the DataFrame back to the CSV
+                        df['Discord'] = df['Discord'].astype(str)
                         df.to_csv(csv_file, index=False)
 
                         response_message = f"Added 5 points to '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}"
