@@ -554,7 +554,6 @@ async def on_ready():
                 await message.channel.send("You do not have permission to use this command.")
         # Export Clan CSV to Discord end
 
-        #Add Joker Points Start
         # Add Joker Points Start
         if content_lower.startswith('!jpadd') and not message.author.bot:
             # Check if the user has the admin role
@@ -591,10 +590,6 @@ async def on_ready():
                             (200, "Onyx"),
                             (250, "Zenyte")
                         ]
-                        for threshold, rank in rank_thresholds:
-                            if total_points < threshold:
-                                return rank
-                        return "Zenyte"
 
                         # Determine the new rank based on total points
                         new_rank = None
@@ -625,8 +620,7 @@ async def on_ready():
                     await message.channel.send(f"An error occurred: {str(e)}")
             else:
                 await message.channel.send("You do not have permission to use this command.")
-
-                #Add Joker Points End
+        # Add Joker Points End
 
         if message.content.startswith('!reactrole') and message.author != bot.user:
             # Check if the user has the admin role
