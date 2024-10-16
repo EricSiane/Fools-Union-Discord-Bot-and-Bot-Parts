@@ -47,8 +47,11 @@ async def handle_importjson_command(message, admin_role_id):
                 json_data = await attachment.read()
                 data = json.loads(json_data.decode('utf-8'))
 
-                # Save the data to clan_member_data.json
-                with open('clan_member_data.json', 'w') as f:
+                # Ensure the data directory exists
+                DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+                # Save the data to data/clan_member_data.json
+                with open(DATA_DIR / 'clan_member_data.json', 'w') as f:
                     json.dump(data, f, indent=4)
 
                 await message.channel.send("JSON data imported and saved successfully.")
