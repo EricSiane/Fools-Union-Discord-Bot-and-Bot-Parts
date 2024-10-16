@@ -7,9 +7,11 @@ import re
 DATA_DIR = pathlib.Path("data")
 custom_commands = {}
 
+
 def load_custom_commands():
     global custom_commands
     try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)  # Ensure the data directory exists
         with open(DATA_DIR / 'custom_commands.json', 'r') as f:
             content = f.read().strip()
             if content:
@@ -18,8 +20,12 @@ def load_custom_commands():
                 custom_commands = {}
     except FileNotFoundError:
         custom_commands = {}
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON: {e}")
+        custom_commands = {}
 
 def save_custom_commands():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)  # Ensure the data directory exists
     with open(DATA_DIR / 'custom_commands.json', 'w') as f:
         json.dump(custom_commands, f, indent=4)
 
