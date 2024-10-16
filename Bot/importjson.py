@@ -35,29 +35,23 @@ def handle_storedata_command(data_to_import):
         return "Error: Invalid JSON data provided."
 
 async def handle_importjson_command(message, admin_role_id):
-    if any(role.id == admin_role_id for role in message.author.roles):
-        if message.attachments:
-            attachment = message.attachments[0]
-            if attachment.filename.endswith('.json'):
-                try:
-                    file_path = DATA_DIR / attachment.filename
-                    await attachment.save(file_path)
-
-                    with open(file_path, 'r') as f:
-                        json_data = f.read()
-
-                    result = handle_storedata_command(json_data)
-                    await message.channel.send(result)
-
-                    os.remove(file_path)
-                    await message.delete()
-                except json.JSONDecodeError:
-                    await message.channel.send("Error: Invalid JSON data provided.")
-                except Exception as e:
-                    await message.channel.send(f"An error occurred during import: {e}")
-            else:
-                await message.channel.send("Please upload a valid .json file.")
-        else:
-            await message.channel.send("No attachment found. Please upload a .json file.")
-    else:
+    if not any(role.id == admin_role_id for role in message.author.roles):
         await message.channel.send("You do not have permission to use this command.")
+        return
+
+    if message.attachments:
+        attachment = message.attachments[0]
+        if attachment.filename.endswith('.json'):
+            try:
+                json_data = await attachment.read()
+                data = json.loads(json_data.decode('utf-8'))
+                # Process the data as needed
+                await message.channel.send("JSON data imported successfully.")
+            except json.JSONDecodeError:
+                await message.channel.send("Error: Invalid JSON data provided.")
+            except Exception as e:
+                await message.channel.send(f"An unexpected error occurred: {e}")
+        else:
+            await message.channel.send("Error: The attached file is not a JSON file.")
+    else:
+        await message.channel.send("Error: No file attached.")
