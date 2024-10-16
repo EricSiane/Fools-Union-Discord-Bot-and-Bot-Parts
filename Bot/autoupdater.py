@@ -14,8 +14,15 @@ def update_clan():
     csv_file = DATA_DIR / "fools_union_member_data.csv"
 
     def load_data(json_file):
+        if os.path.getsize(json_file) == 0:
+            print(f"Error: The file {json_file} is empty.")
+            return []
         with open(json_file, 'r') as f:
-            data = json.load(f)
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON from file {json_file}: {e}")
+                return []
         return data
 
     def calculate_member_stats(members):
