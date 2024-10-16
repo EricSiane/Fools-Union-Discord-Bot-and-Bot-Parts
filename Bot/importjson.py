@@ -34,6 +34,7 @@ def handle_storedata_command(data_to_import):
     except json.JSONDecodeError:
         return "Error: Invalid JSON data provided."
 
+
 async def handle_importjson_command(message, admin_role_id):
     if not any(role.id == admin_role_id for role in message.author.roles):
         await message.channel.send("You do not have permission to use this command.")
@@ -45,8 +46,12 @@ async def handle_importjson_command(message, admin_role_id):
             try:
                 json_data = await attachment.read()
                 data = json.loads(json_data.decode('utf-8'))
-                # Process the data as needed
-                await message.channel.send("JSON data imported successfully.")
+
+                # Save the data to clan_member_data.json
+                with open('clan_member_data.json', 'w') as f:
+                    json.dump(data, f, indent=4)
+
+                await message.channel.send("JSON data imported and saved successfully.")
             except json.JSONDecodeError:
                 await message.channel.send("Error: Invalid JSON data provided.")
             except Exception as e:
