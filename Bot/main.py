@@ -47,7 +47,7 @@ ANNOUNCEMENT_CHANNEL_ID = int(os.getenv("RANK_CHANNEL_ID"))
 COMMANDS_FILE = pathlib.Path("data") / "custom_commands.json"
 
 custom_commands = {}
-
+load_custom_commands()
 async def run_periodically():
     default_channel = bot.get_channel(int(os.getenv("LOG_CHANNEL_ID")))
     while True:
