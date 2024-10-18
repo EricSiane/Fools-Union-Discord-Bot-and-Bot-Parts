@@ -15,10 +15,8 @@ JSON_FILE = DATA_DIR / "clan_member_data.json"
 csv_file = DATA_DIR / "fools_union_member_data.csv"
 
 async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
-    content_lower = message.content.lower()
-    rsn = content_lower[len('!rsn '):]
+    rsn = message.content[len('!rsn '):]  # Keep the original case
 
-    csv_file = DATA_DIR / "fools_union_member_data.csv"
     df = pd.read_csv(csv_file, dtype={'Discord': str})
     rank_thresholds = [
         (0, "Bronze Bar"),
@@ -40,9 +38,9 @@ async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
     guest = discord.utils.get(guild.roles, name="Guest")
     joiner = discord.utils.get(guild.roles, name="Joiner")
 
-    if rsn in df['rsn_lower'].values:
-        index = df.index[df['rsn_lower'] == rsn].tolist()[0]
-        df.at[index, 'Discord'] = int(message.author.id)
+    if rsn.lower() in df['rsn_lower'].values:
+        index = df.index[df['rsn_lower'] == rsn.lower()].tolist()[0]
+        df.at[index, 'Discord'] = str(message.author.id)
 
         new_points = df.at[index, 'Total Points']
 
@@ -60,16 +58,14 @@ async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
             announcement_channel = bot.get_channel(ANNOUNCEMENT_CHANNEL_ID)
             await announcement_channel.send(f"{df.at[index, 'rsn']} has been promoted to {new_rank}!")
 
-        df['Discord'] = df['Discord'].astype(str)
         df.to_csv(csv_file, index=False)
 
         original_rsn = df.at[index, 'rsn']
         sent_message = await message.channel.send(
-            f"Discord ID {message.author.mention} has been linked to RSN '{df.at[index, 'rsn']}'."
+            f"Discord ID {message.author.mention} has been linked to RSN '{original_rsn}'."
         )
         await message.author.add_roles(fools, iron)
-        await message.author.remove_roles(guest)
-        await message.author.remove_roles(joiner)
+        await message.author.remove_roles(guest, joiner)
 
         await asyncio.sleep(10)  # Wait for 10 seconds
         await sent_message.delete()
@@ -80,7 +76,7 @@ async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
         except discord.Forbidden:
             await message.channel.send("I don't have permission to change your nickname.")
     else:
-        await message.channel.send(
+        sent_message = await message.channel.send(
             f"RSN '{rsn}' not found in the clan list. If you aren't in the clan, welcome as a guest!")
         await message.author.add_roles(guest)
         await message.author.remove_roles(joiner)
@@ -88,3 +84,7 @@ async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
             await message.author.edit(nick=rsn)  # Change nickname to the entered RSN
         except discord.Forbidden:
             await message.channel.send("I don't have permission to change your nickname.")
+
+        await asyncio.sleep(10)  # Wait for 10 seconds
+        await sent_message.delete()
+        await message.delete()
