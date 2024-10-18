@@ -5,8 +5,9 @@ import os
 import random
 import re
 import json
+import pytz
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import deque
 from dotenv import load_dotenv
 from shared import reaction_role_mapping, save_role_data, load_role_data
@@ -59,9 +60,15 @@ custom_commands = {}
 load_custom_commands()
 async def run_periodically():
     default_channel = bot.get_channel(int(os.getenv("LOG_CHANNEL_ID")))
-    while True:
-        await run_update_clan(bot, default_channel=default_channel)
-        await asyncio.sleep(6 * 60 * 60)  # Sleep for 6 hours
+    utc = pytz.utc
+    now = datetime.now(utc)
+    target_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if now > target_time:
+        target_time += timedelta(days=1)
+
+    initial_delay = (target_time - now).total_seconds()
+    await asyncio.sleep(initial_delay)
 
 @bot.event
 async def on_ready():
