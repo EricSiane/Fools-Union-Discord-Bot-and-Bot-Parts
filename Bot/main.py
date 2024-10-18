@@ -53,9 +53,6 @@ boss_of_the_week = ["Abyssal Sire", "Alchemical Hydra" ,"Amoxliatl", "Araxxor", 
  "Deranged Archaeologist", "Duke Sucellus", "General Graardor", "Giant Mole", "Grotesque Guardians",
  "Kalphite Queen", "King Black Dragon", "Kraken", "Kree'Arra", "K'ril Tsutsaroth", "Nex", "Nightmare", "Obor", "Phantom Muspah", "Sarachnis", "Scorpia", "Scurrius", "Skotizo", "Tempoross", "The Gauntlet", "The Leviathan", "The Hueycoatl", "The Whisperer", "Thermonuclear Smoke Devil", "TzTok-Jad", "Vardorvis", "Venenatis", "Vorkath", "Wintertodt", "Zalcano", "Zulrah"]
 
-
-
-
 custom_commands = {}
 load_custom_commands()
 async def run_periodically():
