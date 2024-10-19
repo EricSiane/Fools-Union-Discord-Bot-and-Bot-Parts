@@ -57,6 +57,10 @@ custom_commands = {}
 load_custom_commands()
 async def run_periodically():
     default_channel = bot.get_channel(int(os.getenv("LOG_CHANNEL_ID")))
+    if not default_channel:
+        print("Log channel not found.")
+        return
+
     utc = pytz.utc
     now = datetime.now(utc)
     target_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -66,6 +70,10 @@ async def run_periodically():
 
     initial_delay = (target_time - now).total_seconds()
     await asyncio.sleep(initial_delay)
+
+    while True:
+        await run_update_clan(bot, default_channel=default_channel)
+        await asyncio.sleep(6 * 60 * 60)  # Sleep for 6 hours
 
 @bot.event
 async def on_ready():
