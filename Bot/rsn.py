@@ -68,13 +68,21 @@ async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
         await message.author.remove_roles(guest, joiner)
 
         await asyncio.sleep(10)  # Wait for 10 seconds
-        await sent_message.delete()
-        await message.delete()
+        try:
+            await sent_message.delete()
+        except discord.NotFound:
+            print("Message already deleted.")
+        try:
+            await message.delete()
+        except discord.NotFound:
+            print("Message already deleted.")
 
         try:
             await message.author.edit(nick=original_rsn)
         except discord.Forbidden:
             await message.channel.send("I don't have permission to change your nickname.")
+        except discord.HTTPException as e:
+            await message.channel.send(f"Failed to change nickname: {e}")
     else:
         sent_message = await message.channel.send(
             f"RSN '{rsn}' not found in the clan list. If you aren't in the clan, welcome as a guest!")
@@ -84,7 +92,15 @@ async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
             await message.author.edit(nick=rsn)  # Change nickname to the entered RSN
         except discord.Forbidden:
             await message.channel.send("I don't have permission to change your nickname.")
+        except discord.HTTPException as e:
+            await message.channel.send(f"Failed to change nickname: {e}")
 
         await asyncio.sleep(10)  # Wait for 10 seconds
-        await sent_message.delete()
-        await message.delete()
+        try:
+            await sent_message.delete()
+        except discord.NotFound:
+            print("Message already deleted.")
+        try:
+            await message.delete()
+        except discord.NotFound:
+            print("Message already deleted.")
