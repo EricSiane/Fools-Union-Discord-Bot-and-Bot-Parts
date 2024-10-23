@@ -75,14 +75,14 @@ async def run_periodically():
         await run_update_clan(bot, default_channel=default_channel)
         await asyncio.sleep(6 * 60 * 60)  # Sleep for 6 hours
 
-@bot.event
-async def on_ready():
-    print(f'Bot is ready. Logged in as {bot.user}')
-    load_channels_from_json()
-    await assign_or_remove_roles_for_existing_reactions(bot, reaction_role_mapping)
-    await check_and_delete_empty_channels(bot)
+async def delete_old_messages():
+    await bot.wait_until_ready()
     channel = bot.get_channel(int(welcome_channel))
-    if channel:
+    if not channel:
+        print("Welcome channel not found.")
+        return
+
+    while True:
         specific_message_id = int(welcome_message)
         async for message in channel.history(limit=None):
             if message.id == specific_message_id:
@@ -95,6 +95,15 @@ async def on_ready():
                 except Exception as e:
                     print(f"An error occurred while deleting message with ID {message.id}: {e}")
 
+        await asyncio.sleep(3600)  # Sleep for 1 hour
+
+@bot.event
+async def on_ready():
+    print(f'Bot is ready. Logged in as {bot.user}')
+    load_channels_from_json()
+    await assign_or_remove_roles_for_existing_reactions(bot, reaction_role_mapping)
+    await check_and_delete_empty_channels(bot)
+    bot.loop.create_task(delete_old_messages())
     bot.loop.create_task(run_periodically())
 
 @bot.event
