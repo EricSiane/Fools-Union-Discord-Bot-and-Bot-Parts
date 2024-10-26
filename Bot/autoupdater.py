@@ -39,6 +39,16 @@ def update_clan():
         if 'Discord Points' not in clan_csv.columns:
             clan_csv['Discord Points'] = 0
 
+        # Load user_not_in_clan.json
+        json_file = DATA_DIR / "user_not_in_clan.json"
+        if json_file.exists() and json_file.stat().st_size != 0:
+            with open(json_file, 'r') as f:
+                user_not_in_clan = json.load(f)
+        else:
+            user_not_in_clan = []
+
+        updated_users = []
+
         for member in members:
             existing_member = clan_csv[clan_csv['rsn'].str.rstrip() == member['rsn'].rstrip()]
 
@@ -61,9 +71,22 @@ def update_clan():
                     'Discord Points': 0,
                     'Total Points': member["points from time in clan"],
                     'Alts': [],
-                    'rsn_lower': []
+                    'rsn_lower': member['rsn'].lower()
                 }])
                 clan_csv = pd.concat([clan_csv, new_member], ignore_index=True)
+            for user in user_not_in_clan:
+                rsn_lower = user['rsn'].lower()
+                discord_id = user['discord_id']
+                if not clan_csv.loc[clan_csv['rsn_lower'] == rsn_lower, 'Discord'].empty:
+                    clan_csv.loc[clan_csv['rsn_lower'] == rsn_lower, 'Discord'] = discord_id
+                    updated_users.append(user)
+
+            # Remove updated users from user_not_in_clan.json
+            user_not_in_clan = [user for user in user_not_in_clan if user not in updated_users]
+
+            with open(json_file, 'w') as f:
+                json.dump(user_not_in_clan, f, indent=4)
+
         return clan_csv
 
     async def update_ranks(clan_csv, bot):

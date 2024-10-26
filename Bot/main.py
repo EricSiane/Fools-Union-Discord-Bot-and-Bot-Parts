@@ -10,6 +10,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 from collections import deque
 from dotenv import load_dotenv
+
+from jpremove import handle_jpremove_command
 from shared import reaction_role_mapping, save_role_data, load_role_data
 from pointscommand import handle_points_command
 from autoupdater import run_update_clan
@@ -140,6 +142,9 @@ async def on_message(message):
 
     if content_lower.startswith('!jpadd') and not message.author.bot:
         await handle_jpadd_command(message, admin_role_id)
+
+    if content_lower.startswith('!jpremove') and not message.author.bot:
+        await handle_jpremove_command(message, admin_role_id)
 
     if message.content.startswith('!reactrole') and message.author != bot.user:
         await handle_reactrole_command(message, admin_role_id, reaction_role_mapping, save_role_data)
