@@ -1,18 +1,13 @@
 import asyncio
 import discord
 import pathlib
-import os
-import random
-import re
-import json
 import pandas as pd
+import json
 from datetime import datetime
-from collections import deque
-from dotenv import load_dotenv
 
 DATA_DIR = pathlib.Path("data")
-JSON_FILE = DATA_DIR / "clan_member_data.json"
 csv_file = DATA_DIR / "fools_union_member_data.csv"
+json_file = DATA_DIR / "user_not_in_clan.json"
 
 async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
     rsn = message.content[len('!rsn '):]  # Keep the original case
@@ -84,6 +79,32 @@ async def handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID):
         except discord.HTTPException as e:
             await message.channel.send(f"Failed to change nickname: {e}")
     else:
+        # Add or update the RSN and Discord ID in user_not_in_clan.json
+        user_data = {
+            "rsn": rsn,
+            "discord_id": str(message.author.id)
+        }
+
+        if json_file.exists() and json_file.stat().st_size != 0:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+        else:
+            data = []
+
+        # Check if the user ID already exists
+        user_exists = False
+        for user in data:
+            if user['discord_id'] == str(message.author.id):
+                user['rsn'] = rsn  # Update the RSN
+                user_exists = True
+                break
+
+        if not user_exists:
+            data.append(user_data)
+
+        with open(json_file, 'w') as f:
+            json.dump(data, f, indent=4)
+
         sent_message = await message.channel.send(
             f"RSN '{rsn}' not found in the clan list. If you aren't in the clan, welcome as a guest!")
         await message.author.add_roles(guest)
