@@ -7,3 +7,4 @@
 /Bot/testing.py
 /Bot/Defs.py
 /Bot/clan_member_data.json
+.github/workflows/docker-build.yml

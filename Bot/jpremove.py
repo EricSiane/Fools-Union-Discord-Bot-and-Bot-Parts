@@ -4,19 +4,19 @@ import pathlib
 
 DATA_DIR = pathlib.Path("data")
 
-async def handle_jpadd_command(message, admin_role_id):
+async def handle_jpremove_command(message, admin_role_id):
     if any(role.id == admin_role_id for role in message.author.roles):
         csv_file = DATA_DIR / "fools_union_member_data.csv"
         df = pd.read_csv(csv_file, dtype={'Discord': str})
         try:
-            content = message.content[len('!jpadd '):].strip().lower()
+            content = message.content[len('!jpremove '):].strip().lower()
             rsn, points_str = content.rsplit(' ', 1)
             points = int(points_str)
             df['rsn_lower'] = df['rsn'].str.lower()
 
             if rsn in df['rsn_lower'].values:
                 index = df.index[df['rsn_lower'] == rsn].tolist()[0]
-                df.at[index, 'Other Points'] += points
+                df.at[index, 'Other Points'] -= points
                 df.at[index, 'Total Points'] = df.at[index, 'Points From Time in Clan'] + df.at[index, 'Other Points']
 
                 rank_thresholds = [
@@ -47,7 +47,7 @@ async def handle_jpadd_command(message, admin_role_id):
                 df['Discord'] = df['Discord'].astype(str)
                 df.to_csv(csv_file, index=False)
 
-                response_message = f"Added {points} points to '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}"
+                response_message = f"Removed {points} points from '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}"
 
 
                 await message.channel.send(response_message)

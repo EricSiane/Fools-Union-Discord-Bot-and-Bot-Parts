@@ -3,7 +3,7 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - master
+      - dev
 
 permissions:
   contents: read
@@ -32,4 +32,4 @@ jobs:
       with:
         context: .
         push: true
-        tags: ghcr.io/ericsiane/fools-union-discord-bot-and-bot-parts:latest
+        tags: ghcr.io/ericsiane/fools-union-discord-bot-and-bot-parts:dev

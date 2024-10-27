@@ -2,14 +2,11 @@ import asyncio
 import discord
 import pathlib
 import os
-import random
-import re
-import json
 import pytz
-import pandas as pd
 from datetime import datetime, timedelta
-from collections import deque
 from dotenv import load_dotenv
+
+from jpremove import handle_jpremove_command
 from shared import reaction_role_mapping, save_role_data, load_role_data
 from pointscommand import handle_points_command
 from autoupdater import run_update_clan
@@ -110,6 +107,7 @@ async def on_member_join(member):
 
 @bot.event
 async def on_message(message):
+    default_channel = bot.get_channel(int(os.getenv("LOG_CHANNEL_ID")))
     guild = message.guild
     content_lower = message.content.lower()
 
@@ -122,24 +120,34 @@ async def on_message(message):
         log_channel = bot.get_channel(int(os.getenv("LOG_CHANNEL_ID")))
         if log_channel:
             await log_channel.send(f"User {message.author} issued command: {message.content}")
+        await run_update_clan(bot, default_channel=default_channel)
 
     if content_lower.startswith('!points ') and not message.author.bot:
         await handle_points_command(message)
+        await run_update_clan(bot, default_channel=default_channel)
 
     if content_lower.startswith("!otwselect") and not message.author.bot:
         await handle_otwselect_command(message, admin_role_id, skill_of_the_week, boss_of_the_week)
+        await run_update_clan(bot, default_channel=default_channel)
 
     if message.content.startswith("!importjson") and not message.author.bot:
         await handle_importjson_command(message, admin_role_id)
+        await run_update_clan(bot, default_channel=default_channel)
 
     if message.content.startswith("!updateclan") and not message.author.bot:
         await run_clan_update(message, admin_role_id)
 
     if content_lower.startswith('!export') and not message.author.bot:
         await handle_export_command(message, admin_role_id)
+        await run_update_clan(bot, default_channel=default_channel)
 
     if content_lower.startswith('!jpadd') and not message.author.bot:
         await handle_jpadd_command(message, admin_role_id)
+        await run_update_clan(bot, default_channel=default_channel)
+
+    if content_lower.startswith('!jpremove') and not message.author.bot:
+        await handle_jpremove_command(message, admin_role_id)
+        await run_update_clan(bot, default_channel=default_channel)
 
     if message.content.startswith('!reactrole') and message.author != bot.user:
         await handle_reactrole_command(message, admin_role_id, reaction_role_mapping, save_role_data)
@@ -161,6 +169,7 @@ async def on_message(message):
 
     if content_lower.startswith('!memberlist') and not message.author.bot:
         await handle_memberlist_command(message)
+        await run_update_clan(bot, default_channel=default_channel)
 
     if content_lower.startswith('!adminhelp') and not message.author.bot:
         commands = {
