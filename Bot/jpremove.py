@@ -41,7 +41,6 @@ async def handle_jpremove_command(message, admin_role_id):
 
                 if df.at[index, 'rank'] != new_rank:
                     df.at[index, 'rank'] = new_rank
-                    rank_up_message = f"{df.at[index, 'rsn']} has been promoted to {new_rank}!"
                 else:
                     rank_up_message = None
 
@@ -49,8 +48,7 @@ async def handle_jpremove_command(message, admin_role_id):
                 df.to_csv(csv_file, index=False)
 
                 response_message = f"Removed {points} points from '{df.at[index, 'rsn']}'. New total: {df.at[index, 'Total Points']}"
-                if rank_up_message:
-                    response_message += f"\n{rank_up_message}"
+
 
                 await message.channel.send(response_message)
             else:
