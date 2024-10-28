@@ -72,7 +72,7 @@ def update_clan():
             clan_csv = clan_csv[clan_csv['rsn'].str.strip().isin(member_rsn_set)]
 
         # Sort the DataFrame by 'rsn' alphabetically
-        clan_csv = clan_csv.sort_values(by='rsn')
+        clan_csv = clan_csv.sort_values(by='rsn_lower')
 
         return clan_csv
 
