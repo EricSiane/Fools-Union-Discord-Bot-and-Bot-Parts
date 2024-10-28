@@ -1,11 +1,8 @@
-import asyncio
-import discord
 import pathlib
 import os
 import json
 import pandas as pd
 from datetime import datetime
-from dotenv import load_dotenv
 
 DATA_DIR = pathlib.Path("data")
 
@@ -39,18 +36,11 @@ def update_clan():
         if 'Discord Points' not in clan_csv.columns:
             clan_csv['Discord Points'] = 0
 
-        # Load user_not_in_clan.json
-        json_file = DATA_DIR / "user_not_in_clan.json"
-        if json_file.exists() and json_file.stat().st_size != 0:
-            with open(json_file, 'r') as f:
-                user_not_in_clan = json.load(f)
-        else:
-            user_not_in_clan = []
-
-        updated_users = []
+        member_rsn_set = {member['rsn'].strip() for member in members}
 
         for member in members:
-            existing_member = clan_csv[clan_csv['rsn'].str.rstrip() == member['rsn'].rstrip()]
+            member['rsn'] = member['rsn'].strip()
+            existing_member = clan_csv[clan_csv['rsn'].str.strip() == member['rsn']]
 
             if not existing_member.empty:
                 index = existing_member.index[0]
@@ -74,18 +64,12 @@ def update_clan():
                     'rsn_lower': member['rsn'].lower()
                 }])
                 clan_csv = pd.concat([clan_csv, new_member], ignore_index=True)
-            for user in user_not_in_clan:
-                rsn_lower = user['rsn'].lower()
-                discord_id = user['discord_id']
-                if not clan_csv.loc[clan_csv['rsn_lower'] == rsn_lower, 'Discord'].empty:
-                    clan_csv.loc[clan_csv['rsn_lower'] == rsn_lower, 'Discord'] = discord_id
-                    updated_users.append(user)
 
-            # Remove updated users from user_not_in_clan.json
-            user_not_in_clan = [user for user in user_not_in_clan if user not in updated_users]
-
-            with open(json_file, 'w') as f:
-                json.dump(user_not_in_clan, f, indent=4)
+        # Identify members no longer in the clan
+        no_longer_in_clan = clan_csv[~clan_csv['rsn'].str.strip().isin(member_rsn_set)]
+        if not no_longer_in_clan.empty:
+            no_longer_in_clan.to_csv(DATA_DIR / "No_Longer_in_Clan.csv", index=False)
+            clan_csv = clan_csv[clan_csv['rsn'].str.strip().isin(member_rsn_set)]
 
         return clan_csv
 
