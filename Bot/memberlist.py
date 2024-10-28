@@ -41,12 +41,20 @@ async def handle_memberlist_command(message):
 
         user_data += f"{rsn} | {rank} | {points_needed}\n"
 
-    # Split the user_data into chunks of 2000 characters
-    def split_into_chunks(data, chunk_size=2000):
-        for i in range(0, len(data), chunk_size):
-            yield data[i:i + chunk_size]
+    # Split the user_data into lines
+    lines = user_data.split('\n')
 
-    chunks = list(split_into_chunks(user_data))
+    # Accumulate lines into chunks within the 2000-character limit
+    chunks = []
+    current_chunk = ""
+    for line in lines:
+        if len(current_chunk) + len(line) + 1 > 2000:  # +1 for the newline character
+            chunks.append(current_chunk)
+            current_chunk = ""
+        current_chunk += line + "\n"
+    if current_chunk:
+        chunks.append(current_chunk)
 
+    # Send each chunk as a separate message
     for chunk in chunks:
         await message.channel.send(f"```{chunk}```")
