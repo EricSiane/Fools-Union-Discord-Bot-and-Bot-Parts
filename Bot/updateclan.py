@@ -71,6 +71,9 @@ async def run_clan_update(message, admin_role_id):
             no_longer_in_clan.to_csv(DATA_DIR / "No_Longer_in_Clan.csv", index=False)
             clan_csv = clan_csv[clan_csv['rsn'].str.strip().isin(member_rsn_set)]
 
+        # Sort the DataFrame by 'rsn' alphabetically
+        clan_csv = clan_csv.sort_values(by='rsn')
+
         return clan_csv
 
     async def update_ranks(clan_csv):
