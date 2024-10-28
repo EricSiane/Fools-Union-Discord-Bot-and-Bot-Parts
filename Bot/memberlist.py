@@ -1,4 +1,3 @@
-# memberlist.py
 import pandas as pd
 import pathlib
 
@@ -42,4 +41,12 @@ async def handle_memberlist_command(message):
 
         user_data += f"{rsn} | {rank} | {points_needed}\n"
 
-    await message.channel.send(f"```{user_data}```")
+    # Split the user_data into chunks of 2000 characters
+    def split_into_chunks(data, chunk_size=2000):
+        for i in range(0, len(data), chunk_size):
+            yield data[i:i + chunk_size]
+
+    chunks = list(split_into_chunks(user_data))
+
+    for chunk in chunks:
+        await message.channel.send(f"```{chunk}```")
