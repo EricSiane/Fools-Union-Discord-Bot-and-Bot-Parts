@@ -68,7 +68,7 @@ def update_clan():
         # Identify members no longer in the clan
         no_longer_in_clan = clan_csv[~clan_csv['rsn'].str.strip().isin(member_rsn_set)]
         if not no_longer_in_clan.empty:
-            no_longer_in_clan.to_csv(DATA_DIR / "No_Longer_in_Clan.csv", index=False)
+            no_longer_in_clan.to_csv(DATA_DIR / "No_Longer_in_Clan.csv", mode='a', header=not os.path.exists(DATA_DIR / "No_Longer_in_Clan.csv"), index=False)
             clan_csv = clan_csv[clan_csv['rsn'].str.strip().isin(member_rsn_set)]
 
         # Sort the DataFrame by 'rsn' alphabetically
