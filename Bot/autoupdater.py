@@ -113,7 +113,14 @@ def update_clan():
         if rank_channel and rank_changes:
             rank_up_messages = "\n".join(
                 [f"{rsn} has been promoted to {new_rank}!" for rsn, new_rank in rank_changes])
-            await rank_channel.send(f"Rank Up Notifications:\n{rank_up_messages}")
+
+            # Split the messages if they exceed 2000 characters
+            if len(rank_up_messages) > 2000:
+                messages = [rank_up_messages[i:i + 2000] for i in range(0, len(rank_up_messages), 2000)]
+                for msg in messages:
+                    await rank_channel.send(f"Rank Up Notifications:\n{msg}")
+            else:
+                await rank_channel.send(f"Rank Up Notifications:\n{rank_up_messages}")
 
         return clan_csv, rank_changes
 

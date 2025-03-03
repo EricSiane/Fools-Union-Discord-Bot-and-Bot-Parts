@@ -52,19 +52,6 @@ boss_of_the_week = ["Abyssal Sire", "Alchemical Hydra" ,"Amoxliatl", "Araxxor", 
 
 custom_commands = {}
 load_custom_commands()
-
-async def send_long_message(channel, message):
-    try:
-        if len(message) <= 2000:
-            await channel.send(message)
-        else:
-            parts = [message[i:i+2000] for i in range(0, len(message), 2000)]
-            for part in parts:
-                await channel.send(part)
-    except discord.errors.HTTPException as e:
-        if e.code == 50035:  # Invalid Form Body
-            print("Message too long, ignoring the send request.")
-
 async def run_periodically():
     default_channel = bot.get_channel(int(os.getenv("LOG_CHANNEL_ID")))
     if not default_channel:
@@ -189,11 +176,10 @@ async def on_message(message):
             "!rsn <rsn>": "Link your Discord ID to your RuneScape name.",
             "!points <rsn>": "Check the points of a RuneScape name.",
             "ADMIN: !otwselect": "Select the Boss of the Week and Skill of the Week.",
-            "ADMIN: !importjson <json_data_file>": "Import clan member data from JSON.",
+            "ADMIN: !importjson <json_data>": "Import clan member data from JSON.",
             "ADMIN: !updateclan": "Update the clan member data csv.",
             "ADMIN: !export": "Export the clan member data CSV to the chat.",
-            "ADMIN: !jpadd <rsn> <#>": "Add a specified amount Joker Points to a RuneScape name.",
-            "ADMIN: !jpremove <rsn> <#>": "Remove a specified amount Joker Points to a RuneScape name.",
+            "ADMIN: !jpadd <rsn>": "Add Joker Points to a RuneScape name.",
             "ADMIN: !reactrole <message_id> <emoji> <@role_to_add> [<@role_to_remove>] [--remove-reaction]": "Manage reaction roles.",
             "ADMIN: !reactrole <message_id> <emoji> --remove": "Remove a reaction role.",
             "ADMIN: !reactrole <message_id> --remove-message": "Remove all reaction roles from a message.",
