@@ -99,7 +99,7 @@ async def on_message(message):
     guild = message.guild
     content_lower = message.content.lower()
 
-    if message.channel.id == welcome_channel:
+    if message.channel.id == int(welcome_channel):
         if not message.author.guild_permissions.administrator:
             await message.delete(delay=5)
 
