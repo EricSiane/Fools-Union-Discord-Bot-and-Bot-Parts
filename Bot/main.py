@@ -103,9 +103,6 @@ async def on_message(message):
         if not message.author.guild_permissions.administrator:
             await message.delete(delay=5)
 
-    if message.channel.id == int(welcome_channel) and message.id != int(welcome_message):
-        await asyncio.sleep(5)
-        await message.delete()
 
     if content_lower.startswith('!rsn ') and not message.author.bot:
         await handle_rsn_command(message, bot, guild, ANNOUNCEMENT_CHANNEL_ID)
