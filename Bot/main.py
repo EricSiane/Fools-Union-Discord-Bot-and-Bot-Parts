@@ -80,19 +80,7 @@ async def on_ready():
     load_channels_from_json()
     await assign_or_remove_roles_for_existing_reactions(bot, reaction_role_mapping)
     await check_and_delete_empty_channels(bot)
-    channel = bot.get_channel(int(welcome_channel))
-    if channel:
-        specific_message_id = int(welcome_message)
-        async for message in channel.history(limit=None):
-            if message.id == specific_message_id:
-                continue
-            else:
-                try:
-                    await message.delete()
-                except discord.Forbidden:
-                    print(f"Missing permissions to delete message with ID {message.id}")
-                except Exception as e:
-                    print(f"An error occurred while deleting message with ID {message.id}: {e}")
+
 
     bot.loop.create_task(run_periodically())
 
@@ -110,6 +98,10 @@ async def on_message(message):
     default_channel = bot.get_channel(int(os.getenv("LOG_CHANNEL_ID")))
     guild = message.guild
     content_lower = message.content.lower()
+
+    if message.channel.id == welcome_channel:
+        if not message.author.guild_permissions.administrator:
+            await message.delete(delay=5)
 
     if message.channel.id == int(welcome_channel) and message.id != int(welcome_message):
         await asyncio.sleep(5)
@@ -193,6 +185,8 @@ async def on_message(message):
             embed.add_field(name=command, value=description, inline=False)
 
         await message.channel.send(embed=embed)
+
+
 
 @bot.event
 async def on_raw_reaction_add(payload):
