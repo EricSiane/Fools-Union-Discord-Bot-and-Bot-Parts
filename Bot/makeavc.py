@@ -72,8 +72,8 @@ async def handle_voice_state_update(bot, member, before, after):
                 view_channel=True,
                 connect=True,
                 speak=True,
-                mute_members=True,
-                deafen_members=True,
+                mute_members=False,
+                deafen_members=False,
                 move_members=True,
             )
         }
