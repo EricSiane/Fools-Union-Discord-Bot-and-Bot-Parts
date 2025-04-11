@@ -20,6 +20,7 @@ from customcommands import handle_add_command, handle_remove_command, handle_edi
 from reactrole import handle_reaction, handle_reactrole_command, assign_or_remove_roles_for_existing_reactions, save_role_data, load_role_data, on_raw_reaction_add, on_raw_reaction_remove
 from memberlist import handle_memberlist_command
 from makeavc import load_channels_from_json, save_channels_to_json, check_and_delete_empty_channels, handle_voice_state_update
+from rankupdater import update_member_ranks, handle_rank_update_command
 
 # Initialize the bot
 intents = discord.Intents.default()
@@ -70,7 +71,10 @@ async def run_periodically():
 
     while True:
         await run_update_clan(bot, default_channel=default_channel)
-        await asyncio.sleep(6 * 60 * 60)  # Sleep for 6 hours
+        # Also run the rank updater once per day
+        for guild in bot.guilds:
+            await update_member_ranks(bot, guild.id)
+        await asyncio.sleep(24 * 60 * 60)
 
 
 
@@ -160,6 +164,12 @@ async def on_message(message):
         await handle_memberlist_command(message)
         await run_update_clan(bot, default_channel=default_channel)
 
+    if content_lower.startswith('!rankupdate') and not message.author.bot:
+        await handle_rank_update_command(message, admin_role_id)
+        log_channel = bot.get_channel(int(os.getenv("LOG_CHANNEL_ID")))
+        if log_channel:
+            await log_channel.send(f"User {message.author} issued command: {message.content}")
+
     if content_lower.startswith('!adminhelp') and not message.author.bot:
         commands = {
             "!rsn <rsn>": "Link your Discord ID to your RuneScape name.",
@@ -174,7 +184,8 @@ async def on_message(message):
             "ADMIN: !reactrole <message_id> --remove-message": "Remove all reaction roles from a message.",
             "ADMIN: !addcommand <command_name> <response>": "Add a custom command.",
             "ADMIN: !editcommand <command_name> <new_response>": "Edit a custom command.",
-            "ADMIN: !removecommand <command_name>": "Remove a custom command."
+            "ADMIN: !removecommand <command_name>": "Remove a custom command.",
+            "ADMIN: !rankupdate": "Manually update Discord roles based on clan ranks in the CSV file."
         }
 
         embed = discord.Embed(title="Bot Commands", color=discord.Color.blue())

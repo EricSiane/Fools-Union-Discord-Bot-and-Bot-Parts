@@ -125,11 +125,20 @@ async def handle_rank_update_command(message, admin_role_id):
 
     try:
         status_message = await message.channel.send("Updating member ranks...")
-        updated, not_found = await update_member_ranks(message.guild.me._state._client, message.guild.id)
+
+        # Get the bot instance directly
+        bot = message.guild.me._state._get_client()
+
+        # Call update_member_ranks with the correct parameters
+        updated, not_found = await update_member_ranks(bot, message.guild.id)
+
         await status_message.edit(
             content=f"Rank update complete: {updated} members updated, {not_found} members not found in server.")
+
     except Exception as e:
-        await message.channel.send(f"Error during rank update: {str(e)}")
+        error_message = str(e)
+        print(f"Error in rank update: {error_message}")
+        await message.channel.send(f"Error during rank update: {error_message}")
 
 
 # This function can be scheduled to run periodically
